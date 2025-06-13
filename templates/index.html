@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}환영합니다! Travel CRM{% endblock %}
+
+{% block content %}
+    <div class="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+            <div>
+                <h1 class="mt-6 text-center text-3xl font-extrabold text-gray-900">환영합니다! Travel CRM (Python Flask)</h1>
+                <p class="mt-2 text-center text-sm text-gray-600">이것은 Flask 기반의 리팩토링된 프로젝트입니다.</p>
+            </div>
+            <div class="mt-8 space-y-6">
+                <a href="/login" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    로그인
+                </a>
+                <a href="/register" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    회원가입
+                </a>
+            </div>
+        </div>
+    </div>
+{% endblock %} 

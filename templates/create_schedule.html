@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Create Schedule{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">새 일정 생성</h1>
+
+    {% if error %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <strong class="font-bold">오류!</strong>
+        <span class="block sm:inline">{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="bg-white shadow-md rounded-lg p-6">
+        <form action="{{ url_for('create_schedule') }}" method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2 mb-4">
+                    <label for="title" class="block text-gray-700 text-sm font-bold mb-2">일정 제목:</label>
+                    <input type="text" name="title" id="title" value="{{ request.form.get('title', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    {% if errors and errors.title %}
+                    <p class="text-red-500 text-xs italic">{{ errors.title }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="md:col-span-2 mb-4">
+                    <label for="description" class="block text-gray-700 text-sm font-bold mb-2">설명:</label>
+                    <textarea name="description" id="description"
+                              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" rows="3">{{ request.form.get('description', '') }}</textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label for="startDate" class="block text-gray-700 text-sm font-bold mb-2">시작일:</label>
+                    <input type="date" name="startDate" id="startDate" value="{{ request.form.get('startDate', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    {% if errors and errors.startDate %}
+                    <p class="text-red-500 text-xs italic">{{ errors.startDate }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="endDate" class="block text-gray-700 text-sm font-bold mb-2">종료일:</label>
+                    <input type="date" name="endDate" id="endDate" value="{{ request.form.get('endDate', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    {% if errors and errors.endDate %}
+                    <p class="text-red-500 text-xs italic">{{ errors.endDate }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="md:col-span-2 mb-4">
+                    <label for="destination" class="block text-gray-700 text-sm font-bold mb-2">목적지:</label>
+                    <input type="text" name="destination" id="destination" value="{{ request.form.get('destination', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    {% if errors and errors.destination %}
+                    <p class="text-red-500 text-xs italic">{{ errors.destination }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="price" class="block text-gray-700 text-sm font-bold mb-2">가격 (원):</label>
+                    <input type="number" name="price" id="price" value="{{ request.form.get('price', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" min="0">
+                    {% if errors and errors.price %}
+                    <p class="text-red-500 text-xs italic">{{ errors.price }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="maxPeople" class="block text-gray-700 text-sm font-bold mb-2">최대 인원:</label>
+                    <input type="number" name="maxPeople" id="maxPeople" value="{{ request.form.get('maxPeople', '1') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" min="1">
+                    {% if errors and errors.maxPeople %}
+                    <p class="text-red-500 text-xs italic">{{ errors.maxPeople }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4 md:col-span-2">
+                    <label for="status" class="block text-gray-700 text-sm font-bold mb-2">상태:</label>
+                    <select name="status" id="status"
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="Active" {% if request.form.get('status', 'Active') == 'Active' %}selected{% endif %}>활성</option>
+                        <option value="Inactive" {% if request.form.get('status') == 'Inactive' %}selected{% endif %}>비활성</option>
+                        <option value="Completed" {% if request.form.get('status') == 'Completed' %}selected{% endif %}>완료</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-6">
+                <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    일정 생성
+                </button>
+                <a href="{{ url_for('schedules') }}"
+                   class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+                    취소
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

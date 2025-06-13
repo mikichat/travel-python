@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}새 예약 추가{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-6 bg-white rounded-lg shadow-md mt-6">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">새 예약 추가</h1>
+
+    {% if error %}
+    <div class="bg-red-100 text-red-700 p-3 rounded-md mb-4">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form action="{{ url_for('create_reservation_page') }}" method="POST" class="space-y-4">
+        <div>
+            <label for="customer_id" class="block text-sm font-medium text-gray-700">고객</label>
+            <select id="customer_id" name="customer_id" required
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">고객을 선택하세요</option>
+                {% for customer in customers %}
+                <option value="{{ customer.id }}">{{ customer.name }} ({{ customer.phone }})</option>
+                {% endfor %}
+            </select>
+            {% if errors.customer_id %}<p class="text-red-500 text-xs mt-1">{{ errors.customer_id }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label for="schedule_id" class="block text-sm font-medium text-gray-700">일정</label>
+            <select id="schedule_id" name="schedule_id" required
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">일정을 선택하세요</option>
+                {% for schedule in schedules %}
+                <option value="{{ schedule.id }}">{{ schedule.title }} ({{ schedule.start_date.split('T')[0] }} ~ {{ schedule.end_date.split('T')[0] }})</option>
+                {% endfor %}
+            </select>
+            {% if errors.schedule_id %}<p class="text-red-500 text-xs mt-1">{{ errors.schedule_id }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label for="status" class="block text-sm font-medium text-gray-700">상태</label>
+            <select id="status" name="status" required
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="Pending">대기</option>
+                <option value="Confirmed">확정</option>
+                <option value="Cancelled">취소</option>
+            </select>
+            {% if errors.status %}<p class="text-red-500 text-xs mt-1">{{ errors.status }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label for="booking_date" class="block text-sm font-medium text-gray-700">예약일</label>
+            <input type="datetime-local" id="booking_date" name="booking_date" required
+                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+            {% if errors.booking_date %}<p class="text-red-500 text-xs mt-1">{{ errors.booking_date }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label for="number_of_people" class="block text-sm font-medium text-gray-700">인원수</label>
+            <input type="number" id="number_of_people" name="number_of_people" value="{{ request.form.number_of_people or 1 }}" min="1" required
+                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+            {% if errors.number_of_people %}<p class="text-red-500 text-xs mt-1">{{ errors.number_of_people }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label for="total_price" class="block text-sm font-medium text-gray-700">총 가격</label>
+            <input type="number" id="total_price" name="total_price" value="{{ request.form.total_price or 0 }}" step="0.01" required
+                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+            {% if errors.total_price %}<p class="text-red-500 text-xs mt-1">{{ errors.total_price }}</p>{% endif %}
+        </div>
+
+        <div>
+            <label for="notes" class="block text-sm font-medium text-gray-700">메모</label>
+            <textarea id="notes" name="notes" rows="3"
+                      class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">{{ request.form.notes or '' }}</textarea>
+            {% if errors.notes %}<p class="text-red-500 text-xs mt-1">{{ errors.notes }}</p>{% endif %}
+        </div>
+
+        <div class="flex justify-end space-x-3 mt-6">
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                예약 추가
+            </button>
+            <a href="{{ url_for('reservations_page') }}" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                취소
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
