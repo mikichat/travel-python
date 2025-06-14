@@ -1,229 +1,114 @@
 {% extends "base.html" %}
 
-{% block title %}예약 관리{% endblock %}
-
-{% block head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-alpine.css">
-<script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/luxon@2.0.2/build/global/luxon.min.js"></script>
-{% endblock %}
+{% block title %}예약 관리 - Travel CRM{% endblock %}
 
 {% block content %}
-<div class="container mx-auto p-6 bg-white rounded-lg shadow-md mt-6">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">예약 관리</h1>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-        <div class="alert alert-{{ category }} mb-4 p-3 rounded-md {% if category == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
-            {{ message }}
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">예약 관리</h1>
+            <p class="mt-1 text-sm text-gray-600">여행 예약을 관리합니다</p>
         </div>
-        {% endfor %}
-    {% endif %}
-    {% endwith %}
+        <div class="flex space-x-3">
+            <a href="{{ url_for('reservation.create_reservation_page') }}" 
+               class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <i class="fas fa-plus mr-2"></i>
+                새 예약 생성
+            </a>
+        </div>
+    </div>
 
-    <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 mb-6">
-        <div class="flex flex-wrap items-center gap-4">
-            <div class="relative">
-                <input type="text" id="search-input" placeholder="고객명, 일정명, 메모 검색" class="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    {% if error %}
+        <div class="bg-red-50 border border-red-200 rounded-md p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-red-400"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">오류가 발생했습니다</h3>
+                    <div class="mt-2 text-sm text-red-700">{{ error }}</div>
                 </div>
             </div>
-            <select id="status-filter" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">모든 상태</option>
-                <option value="Confirmed">확정</option>
-                <option value="Pending">대기</option>
-                <option value="Cancelled">취소</option>
-            </select>
-            <input type="number" id="min-people" placeholder="최소 인원" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-32">
-            <input type="number" id="max-people" placeholder="최대 인원" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-32">
-            <input type="date" id="booking-date-start" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <input type="date" id="booking-date-end" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button id="filter-button" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">필터 적용</button>
-            <button id="reset-filter-button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400">초기화</button>
         </div>
-        <div class="flex space-x-2">
-            <a href="{{ url_for('reservation.create_reservation_page') }}" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">
-                새 예약 추가
-            </a>
-            <a href="{{ url_for('reservation.export_reservations_csv', **request.args) }}" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                CSV 내보내기
-            </a>
-        </div>
-    </div>
+    {% endif %}
 
-    <div class="ag-theme-alpine" style="height: 600px; width: 100%;">
-        <div id="reservationGrid" class="h-full w-full"></div>
+    <!-- 예약 목록 테이블 -->
+    <div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+        {% if reservations %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">고객명</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">일정명</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">예약일</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">인원수</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">총 가격</th>
+                            <th scope="col" class="relative px-6 py-3">
+                                <span class="sr-only">작업</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for reservation in reservations %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ reservation.id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ reservation.customerName }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ reservation.scheduleTitle }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {% if reservation.status == 'Confirmed' %}bg-green-100 text-green-800
+                                    {% elif reservation.status == 'Pending' %}bg-yellow-100 text-yellow-800
+                                    {% elif reservation.status == 'Cancelled' %}bg-red-100 text-red-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {% if reservation.status == 'Confirmed' %}확정
+                                    {% elif reservation.status == 'Pending' %}대기
+                                    {% elif reservation.status == 'Cancelled' %}취소
+                                    {% else %}{{ reservation.status }}{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ reservation.bookingDate.split('T')[0] if reservation.bookingDate else '' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ reservation.numberOfPeople }}명</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ "{:,.0f}".format(reservation.totalPrice) }}원
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex items-center space-x-2">
+                                    <a href="{{ url_for('reservation.edit_reservation_page', reservation_id=reservation.id) }}" 
+                                       class="text-blue-600 hover:text-blue-900" title="수정">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ url_for('reservation.delete_reservation_page', reservation_id=reservation.id) }}" 
+                                          method="POST" class="inline" 
+                                          onsubmit="return confirm('이 예약을 정말로 삭제하시겠습니까?');">
+                                        <button type="submit" class="text-red-600 hover:text-red-900" title="삭제">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-calendar-times text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">예약이 없습니다</h3>
+                <p class="text-gray-600 mb-4">아직 등록된 예약이 없습니다.</p>
+                <a href="{{ url_for('reservation.create_reservation_page') }}" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                    <i class="fas fa-plus mr-2"></i>
+                    첫 예약 생성하기
+                </a>
+            </div>
+        {% endif %}
     </div>
 </div>
-
-<script>
-    const DateTime = luxon.DateTime;
-
-    const gridOptions = {
-        columnDefs: [
-            { headerName: "ID", field: "id", sortable: true, filter: true, width: 80 },
-            { headerName: "고객명", field: "customerName", sortable: true, filter: true },
-            { headerName: "일정명", field: "scheduleTitle", sortable: true, filter: true },
-            {
-                headerName: "상태",
-                field: "status",
-                sortable: true,
-                filter: true,
-                valueFormatter: params => {
-                    const status = params.value;
-                    if (status === 'Confirmed') return '확정';
-                    if (status === 'Pending') return '대기';
-                    if (status === 'Cancelled') return '취소';
-                    return status;
-                },
-                cellRenderer: params => {
-                    const status = params.value;
-                    let colorClass = '';
-                    if (status === 'Confirmed') colorClass = 'bg-green-100 text-green-600';
-                    if (status === 'Pending') colorClass = 'bg-yellow-100 text-yellow-600';
-                    if (status === 'Cancelled') colorClass = 'bg-red-100 text-red-600';
-                    return `<span class="px-2 py-1 rounded-full text-xs font-semibold ${colorClass}">${gridOptions.columnDefs[3].valueFormatter(params)}</span>`;
-                }
-            },
-            {
-                headerName: "예약일",
-                field: "bookingDate",
-                sortable: true,
-                filter: 'agDateColumnFilter',
-                valueFormatter: params => {
-                    if (!params.value) return '';
-                    const dt = DateTime.fromISO(params.value);
-                    return dt.isValid ? dt.toFormat('yyyy-MM-dd') : '';
-                }
-            },
-            { headerName: "인원수", field: "numberOfPeople", sortable: true, filter: 'agNumberColumnFilter' },
-            { headerName: "총 가격", field: "totalPrice", sortable: true, filter: 'agNumberColumnFilter', valueFormatter: params => params.value ? params.value.toLocaleString('ko-KR') + '원' : '0원' },
-            { headerName: "메모", field: "notes", sortable: true, filter: true, flex: 1 },
-            {
-                headerName: "생성일",
-                field: "createdAt",
-                sortable: true,
-                filter: 'agDateColumnFilter',
-                valueFormatter: params => {
-                    if (!params.value) return '';
-                    const dt = DateTime.fromISO(params.value);
-                    return dt.isValid ? dt.toFormat('yyyy-MM-dd HH:mm') : '';
-                }
-            },
-            {
-                headerName: "작업",
-                field: "actions",
-                cellRenderer: params => {
-                    return `
-                        <div class="flex items-center space-x-2 h-full">
-                            <a href="/reservations/edit/${params.data.id}" class="text-blue-600 hover:text-blue-900" title="수정">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                            </a>
-                            <form action="/reservations/delete/${params.data.id}" method="POST" onsubmit="return confirm('이 예약을 정말로 삭제하시겠습니까?');" class="inline-block">
-                                <button type="submit" class="text-red-600 hover:text-red-900" title="삭제">
-                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                </button>
-                            </form>
-                        </div>
-                    `;
-                },
-                minWidth: 100,
-                maxWidth: 120,
-                resizable: false
-            }
-        ],
-        rowData: {{ reservations | tojson }},
-        pagination: true,
-        paginationPageSize: 20,
-        domLayout: 'autoHeight',
-        suppressCellSelection: true,
-        onGridReady: function(event) {
-            event.api.sizeColumnsToFit();
-        },
-        localeText: {
-            // 필터 텍스트 사용자 정의 (한글화)
-            applyFilter: '적용',
-            clearFilter: '초기화',
-            resetFilter: '초기화',
-            filterOoo: '필터...',
-            contains: '포함',
-            notContains: '포함하지 않음',
-            startsWith: '시작',
-            endsWith: '끝',
-            equals: '같음',
-            notEquals: '같지 않음',
-            lessThan: '미만',
-            lessThanOrEqual: '이하',
-            greaterThan: '초과',
-            greaterThanOrEqual: '이상',
-            inRange: '범위',
-            // 날짜 필터
-            dateFormatOoo: 'yyyy-mm-dd',
-            before: '이전',
-            after: '이후',
-            dateFrom: '시작일',
-            dateTo: '종료일',
-            // 숫자 필터
-            // ... (필요한 경우 추가)
-            // 기타
-            noRowsToShow: '표시할 데이터가 없습니다.'
-        }
-    };
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const gridDiv = document.querySelector('#reservationGrid');
-        new agGrid.Grid(gridDiv, gridOptions);
-
-        const applyFilters = () => {
-            const searchInput = document.getElementById('search-input').value.toLowerCase();
-            const statusFilter = document.getElementById('status-filter').value;
-            const minPeople = parseInt(document.getElementById('min-people').value);
-            const maxPeople = parseInt(document.getElementById('max-people').value);
-            const bookingDateStart = document.getElementById('booking-date-start').value;
-            const bookingDateEnd = document.getElementById('booking-date-end').value;
-
-            gridOptions.api.setRowData([]); // 기존 데이터 초기화
-
-            const filteredData = {{ reservations | tojson }}.filter(reservation => {
-                const customerName = (reservation.customerName || '').toLowerCase();
-                const scheduleTitle = (reservation.scheduleTitle || '').toLowerCase();
-                const notes = (reservation.notes || '').toLowerCase();
-
-                const matchesSearch = !searchInput ||
-                                      customerName.includes(searchInput) ||
-                                      scheduleTitle.includes(searchInput) ||
-                                      notes.includes(searchInput);
-
-                const matchesStatus = !statusFilter || reservation.status === statusFilter;
-                
-                const matchesMinPeople = isNaN(minPeople) || reservation.numberOfPeople >= minPeople;
-                const matchesMaxPeople = isNaN(maxPeople) || reservation.numberOfPeople <= maxPeople;
-
-                const reservationBookingDate = DateTime.fromISO(reservation.bookingDate);
-                const matchesBookingDateStart = !bookingDateStart || (reservationBookingDate.isValid && reservationBookingDate >= DateTime.fromISO(bookingDateStart));
-                const matchesBookingDateEnd = !bookingDateEnd || (reservationBookingDate.isValid && reservationBookingDate <= DateTime.fromISO(bookingDateEnd));
-
-                return matchesSearch && matchesStatus && matchesMinPeople && matchesMaxPeople && matchesBookingDateStart && matchesBookingDateEnd;
-            });
-            gridOptions.api.setRowData(filteredData);
-        };
-
-        document.getElementById('filter-button').addEventListener('click', applyFilters);
-        document.getElementById('reset-filter-button').addEventListener('click', () => {
-            document.getElementById('search-input').value = '';
-            document.getElementById('status-filter').value = '';
-            document.getElementById('min-people').value = '';
-            document.getElementById('max-people').value = '';
-            document.getElementById('booking-date-start').value = '';
-            document.getElementById('booking-date-end').value = '';
-            gridOptions.api.setRowData({{ reservations | tojson }}); // Reset to initial data
-        });
-
-        // 초기 로드 시 필터 적용 (URL 파라미터가 있는 경우)
-        applyFilters();
-    });
-</script>
 {% endblock %}

@@ -243,21 +243,51 @@ def export_reservations_csv():
 @jwt_required(current_app)
 def create_reservation_page():
     if request.method == 'POST':
+        # 폼 데이터 가져오기
         customer_id = request.form.get('customer_id')
         schedule_id = request.form.get('schedule_id')
+        status = request.form.get('status', 'Pending')
+        booking_date = request.form.get('booking_date')
         number_of_people = request.form.get('number_of_people', 1)
         total_price = request.form.get('total_price', 0)
         notes = request.form.get('notes', '')
-        if not customer_id or not schedule_id:
-            return render_template('create_reservation.html', error='고객과 일정 정보는 필수입니다.')
+
+        # 필수 필드 검증
+        errors = {}
+        if not customer_id:
+            errors['customer_id'] = '고객을 선택해주세요.'
+        if not schedule_id:
+            errors['schedule_id'] = '일정을 선택해주세요.'
+        if not booking_date:
+            errors['booking_date'] = '예약일을 입력해주세요.'
+
+        if errors:
+            # 고객과 일정 목록을 가져와서 템플릿에 전달
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')
+            customers = cursor.fetchall()
+            cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date')
+            schedules = cursor.fetchall()
+            conn.close()
+            return render_template('create_reservation.html', customers=customers, schedules=schedules, errors=errors, error='필수 정보를 모두 입력해주세요.')
+
+        # 숫자 변환
+        try:
+            number_of_people = int(number_of_people) if number_of_people else 1
+            total_price = float(total_price) if total_price else 0
+        except ValueError:
+            return render_template('create_reservation.html', error='인원수와 가격은 숫자로 입력해주세요.')
+
         conn = get_db_connection()
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
+        
         try:
             cursor.execute("""
-                INSERT INTO reservations (customer_id, schedule_id, number_of_people, total_price, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (customer_id, schedule_id, number_of_people, total_price, notes, current_time, current_time))
+                INSERT INTO reservations (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, current_time))
             conn.commit()
             conn.close()
             return redirect(url_for('reservation.reservations_page'))
@@ -265,7 +295,17 @@ def create_reservation_page():
             conn.close()
             print(f'예약 등록 오류: {e}')
             return render_template('create_reservation.html', error='예약 등록 중 오류가 발생했습니다.')
-    return render_template('create_reservation.html')
+    
+    # GET 요청 시 고객과 일정 목록을 가져와서 템플릿에 전달
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')
+    customers = cursor.fetchall()
+    cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date')
+    schedules = cursor.fetchall()
+    conn.close()
+    
+    return render_template('create_reservation.html', customers=customers, schedules=schedules)
 
 @reservation_bp.route('/edit/<int:reservation_id>', methods=['GET', 'POST'])
 @jwt_required(current_app)
@@ -274,27 +314,63 @@ def edit_reservation_page(reservation_id):
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
     reservation = cursor.fetchone()
-    conn.close()
+    
     if not reservation:
-        return render_template('reservations.html', error='예약을 찾을 수 없습니다.')
+        conn.close()
+        return render_template('edit_reservation.html', reservation=None, error='예약을 찾을 수 없습니다.')
+    
+    # 고객과 일정 목록을 가져오기
+    cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')
+    customers = cursor.fetchall()
+    cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date')
+    schedules = cursor.fetchall()
+    conn.close()
+    
     if request.method == 'POST':
+        # 폼 데이터 가져오기
+        customer_id = request.form.get('customer_id')
+        schedule_id = request.form.get('schedule_id')
+        status = request.form.get('status', 'Pending')
+        booking_date = request.form.get('booking_date')
         number_of_people = request.form.get('number_of_people', 1)
         total_price = request.form.get('total_price', 0)
         notes = request.form.get('notes', '')
+
+        # 필수 필드 검증
+        errors = {}
+        if not customer_id:
+            errors['customer_id'] = '고객을 선택해주세요.'
+        if not schedule_id:
+            errors['schedule_id'] = '일정을 선택해주세요.'
+        if not booking_date:
+            errors['booking_date'] = '예약일을 입력해주세요.'
+
+        if errors:
+            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors, error='필수 정보를 모두 입력해주세요.')
+
+        # 숫자 변환
+        try:
+            number_of_people = int(number_of_people) if number_of_people else 1
+            total_price = float(total_price) if total_price else 0
+        except ValueError:
+            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='인원수와 가격은 숫자로 입력해주세요.')
+
         conn = get_db_connection()
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
+        
         try:
             cursor.execute("""
                 UPDATE reservations
-                SET number_of_people = ?, total_price = ?, notes = ?, updated_at = ?
+                SET customer_id = ?, schedule_id = ?, status = ?, booking_date = ?, number_of_people = ?, total_price = ?, notes = ?, updated_at = ?
                 WHERE id = ?
-            """, (number_of_people, total_price, notes, current_time, reservation_id))
+            """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, reservation_id))
             conn.commit()
             conn.close()
             return redirect(url_for('reservation.reservations_page'))
         except Exception as e:
             conn.close()
             print(f'예약 수정 오류: {e}')
-            return render_template('edit_reservation.html', reservation=reservation, error='예약 수정 중 오류가 발생했습니다.')
-    return render_template('edit_reservation.html', reservation=reservation) 
+            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='예약 수정 중 오류가 발생했습니다.')
+    
+    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules) 
