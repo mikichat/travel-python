@@ -14,10 +14,30 @@ def reservations_page():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM reservations ORDER BY created_at DESC')
+        # 고객명과 일정명을 조인하여 조회
+        cursor.execute("""
+            SELECT r.*, c.name as customer_name, s.title as schedule_title 
+            FROM reservations r
+            LEFT JOIN customers c ON r.customer_id = c.id
+            LEFT JOIN schedules s ON r.schedule_id = s.id
+            ORDER BY r.created_at DESC
+        """)
         reservations = cursor.fetchall()
         conn.close()
-        return render_template('reservations.html', reservations=reservations)
+        
+        # sqlite3.Row 객체를 딕셔너리로 변환
+        reservations_list = []
+        for reservation in reservations:
+            reservation_dict = dict(reservation)
+            # 템플릿에서 사용하는 필드들로 매핑
+            reservation_dict['customerName'] = reservation_dict.get('customer_name', '알 수 없음')
+            reservation_dict['scheduleTitle'] = reservation_dict.get('schedule_title', '알 수 없음')
+            reservation_dict['bookingDate'] = reservation_dict.get('booking_date', '')
+            reservation_dict['numberOfPeople'] = reservation_dict.get('number_of_people', 0)
+            reservation_dict['totalPrice'] = reservation_dict.get('total_price', 0)
+            reservations_list.append(reservation_dict)
+        
+        return render_template('reservations.html', reservations=reservations_list)
     except Exception as e:
         print(f'예약 목록 조회 오류: {e}')
         return render_template('reservations.html', error='예약 목록을 불러오는 중 오류가 발생했습니다.')
@@ -28,7 +48,14 @@ def get_reservations():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM reservations ORDER BY created_at DESC')
+        # 고객명과 일정명을 조인하여 조회
+        cursor.execute("""
+            SELECT r.*, c.name as customer_name, s.title as schedule_title 
+            FROM reservations r
+            LEFT JOIN customers c ON r.customer_id = c.id
+            LEFT JOIN schedules s ON r.schedule_id = s.id
+            ORDER BY r.created_at DESC
+        """)
         reservations = cursor.fetchall()
         conn.close()
         reservations_list = []
@@ -36,6 +63,8 @@ def get_reservations():
             res_data = dict(res)
             res_data['createdAt'] = res_data.pop('created_at')
             res_data['updatedAt'] = res_data.pop('updated_at')
+            res_data['customerName'] = res_data.pop('customer_name', '알 수 없음')
+            res_data['scheduleTitle'] = res_data.pop('schedule_title', '알 수 없음')
             reservations_list.append(res_data)
         return jsonify(reservations_list)
     except Exception as e:

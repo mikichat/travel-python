@@ -14,10 +14,29 @@ def schedules_page():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM schedules ORDER BY created_at DESC')
+        # 일정과 예약된 슬롯 수를 조인하여 조회
+        cursor.execute("""
+            SELECT s.*, COALESCE(SUM(r.number_of_people), 0) as booked_slots
+            FROM schedules s
+            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled'
+            GROUP BY s.id
+            ORDER BY s.created_at DESC
+        """)
         schedules = cursor.fetchall()
         conn.close()
-        return render_template('schedules.html', schedules=schedules)
+        
+        # sqlite3.Row 객체를 딕셔너리로 변환하고 템플릿에 맞는 필드 매핑
+        schedules_list = []
+        for schedule in schedules:
+            schedule_dict = dict(schedule)
+            # 템플릿에서 사용하는 필드들로 매핑
+            schedule_dict['date'] = schedule_dict.get('start_date', '')
+            schedule_dict['time'] = schedule_dict.get('meeting_time', '')
+            schedule_dict['capacity'] = schedule_dict.get('max_people', 0)
+            schedule_dict['booked_slots'] = schedule_dict.get('booked_slots', 0)
+            schedules_list.append(schedule_dict)
+        
+        return render_template('schedules.html', schedules=schedules_list, total_schedules=len(schedules_list))
     except Exception as e:
         print(f'일정 목록 조회 오류: {e}')
         return render_template('schedules.html', error='일정 목록을 불러오는 중 오류가 발생했습니다.')
@@ -28,7 +47,14 @@ def get_schedules():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM schedules ORDER BY created_at DESC')
+        # 일정과 예약된 슬롯 수를 조인하여 조회
+        cursor.execute("""
+            SELECT s.*, COALESCE(SUM(r.number_of_people), 0) as booked_slots
+            FROM schedules s
+            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled'
+            GROUP BY s.id
+            ORDER BY s.created_at DESC
+        """)
         schedules = cursor.fetchall()
         conn.close()
         schedules_list = []
@@ -36,6 +62,7 @@ def get_schedules():
             schedule_data = dict(schedule)
             schedule_data['createdAt'] = schedule_data.pop('created_at')
             schedule_data['updatedAt'] = schedule_data.pop('updated_at')
+            schedule_data['bookedSlots'] = schedule_data.pop('booked_slots', 0)
             schedules_list.append(schedule_data)
         return jsonify(schedules_list)
     except Exception as e:

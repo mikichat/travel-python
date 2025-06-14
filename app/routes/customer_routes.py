@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, make_response
+from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for
 from datetime import datetime
 import csv
 import io
@@ -19,7 +19,24 @@ def customers_page():
         customers = cursor.fetchall()
         conn.close()
         
-        return render_template('customers.html', customers=customers)
+        # sqlite3.Row 객체를 딕셔너리로 변환
+        customers_list = []
+        for customer in customers:
+            customer_dict = dict(customer)
+            customers_list.append(customer_dict)
+        
+        # 페이지네이션 변수들 설정 (현재는 단순화)
+        total_customers_count = len(customers_list)
+        current_page = 1
+        items_per_page = 20
+        total_pages = 1
+        
+        return render_template('customers.html', 
+                             customers=customers_list,
+                             total_customers_count=total_customers_count,
+                             current_page=current_page,
+                             items_per_page=items_per_page,
+                             total_pages=total_pages)
     except Exception as e:
         print(f'고객 목록 조회 오류: {e}')
         return render_template('customers.html', error='고객 목록을 불러오는 중 오류가 발생했습니다.')
