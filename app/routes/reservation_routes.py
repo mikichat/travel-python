@@ -34,16 +34,57 @@ def get_status_text_filter(status):
 @jwt_required(current_app)
 def reservations_page():
     try:
+        # 검색 파라미터 가져오기
+        customer_name = request.args.get('customer_name', '').strip()
+        schedule_title = request.args.get('schedule_title', '').strip()
+        status = request.args.get('status', '').strip()
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        
         conn = get_db_connection()
         cursor = conn.cursor()
-        # 고객명과 일정명을 조인하여 조회
-        cursor.execute("""
+        
+        # 기본 쿼리
+        query = """
             SELECT r.*, c.name as customer_name, s.title as schedule_title 
             FROM reservations r
             LEFT JOIN customers c ON r.customer_id = c.id
             LEFT JOIN schedules s ON r.schedule_id = s.id
-            ORDER BY r.created_at DESC
-        """)
+        """
+        
+        # WHERE 조건 구성
+        conditions = []
+        params = []
+        
+        if customer_name:
+            conditions.append("c.name LIKE ?")
+            params.append(f"%{customer_name}%")
+        
+        if schedule_title:
+            conditions.append("s.title LIKE ?")
+            params.append(f"%{schedule_title}%")
+        
+        if status:
+            conditions.append("r.status = ?")
+            params.append(status)
+        
+        if date_from:
+            conditions.append("r.booking_date >= ?")
+            params.append(f"{date_from}T00:00:00")
+        
+        if date_to:
+            conditions.append("r.booking_date <= ?")
+            params.append(f"{date_to}T23:59:59")
+        
+        # WHERE 절 추가
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        # 정렬
+        query += " ORDER BY r.created_at DESC"
+        
+        # 쿼리 실행
+        cursor.execute(query, params)
         reservations = cursor.fetchall()
         conn.close()
         
