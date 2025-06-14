@@ -296,20 +296,68 @@ def export_schedules_csv():
 @jwt_required(current_app)
 def create_schedule_page():
     if request.method == 'POST':
+        # 폼 데이터 가져오기
         title = request.form.get('title')
+        description = request.form.get('description', '')
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
         destination = request.form.get('destination')
-        if not title or not start_date or not end_date or not destination:
-            return render_template('create_schedule.html', error='제목, 시작일, 종료일, 목적지는 필수입니다.')
+        price = request.form.get('price', 0)
+        max_people = request.form.get('max_people', 1)
+        status = request.form.get('status', 'Active')
+        duration = request.form.get('duration', '')
+        region = request.form.get('region', '')
+        meeting_date = request.form.get('meeting_date', '')
+        meeting_time = request.form.get('meeting_time', '')
+        meeting_place = request.form.get('meeting_place', '')
+        manager = request.form.get('manager', '')
+        reservation_maker = request.form.get('reservation_maker', '')
+        reservation_maker_contact = request.form.get('reservation_maker_contact', '')
+        important_docs = request.form.get('important_docs', '')
+        currency_info = request.form.get('currency_info', '')
+        other_items = request.form.get('other_items', '')
+        memo = request.form.get('memo', '')
+
+        # 필수 필드 검증
+        errors = {}
+        if not title:
+            errors['title'] = '일정 제목은 필수입니다.'
+        if not start_date:
+            errors['start_date'] = '시작일은 필수입니다.'
+        if not end_date:
+            errors['end_date'] = '종료일은 필수입니다.'
+        if not destination:
+            errors['destination'] = '목적지는 필수입니다.'
+
+        if errors:
+            return render_template('create_schedule.html', errors=errors, error='필수 정보를 모두 입력해주세요.')
+
+        # 가격과 최대 인원 숫자 변환
+        try:
+            price = float(price) if price else 0
+            max_people = int(max_people) if max_people else 1
+        except ValueError:
+            return render_template('create_schedule.html', error='가격과 최대 인원은 숫자로 입력해주세요.')
+
         conn = get_db_connection()
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
+        
         try:
             cursor.execute("""
-                INSERT INTO schedules (title, start_date, end_date, destination, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (title, start_date, end_date, destination, current_time, current_time))
+                INSERT INTO schedules (
+                    title, description, start_date, end_date, destination, price, max_people, 
+                    status, duration, region, meeting_date, meeting_time, meeting_place, 
+                    manager, reservation_maker, reservation_maker_contact, important_docs, 
+                    currency_info, other_items, memo, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                title, description, start_date, end_date, destination, price, max_people,
+                status, duration, region, meeting_date, meeting_time, meeting_place,
+                manager, reservation_maker, reservation_maker_contact, important_docs,
+                currency_info, other_items, memo, current_time, current_time
+            ))
             conn.commit()
             conn.close()
             return redirect(url_for('schedule.schedules_page'))
@@ -317,6 +365,7 @@ def create_schedule_page():
             conn.close()
             print(f'일정 등록 오류: {e}')
             return render_template('create_schedule.html', error='일정 등록 중 오류가 발생했습니다.')
+    
     return render_template('create_schedule.html')
 
 @schedule_bp.route('/<int:schedule_id>', methods=['GET', 'POST'])
@@ -327,24 +376,73 @@ def edit_schedule_page(schedule_id):
     cursor.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,))
     schedule = cursor.fetchone()
     conn.close()
+    
     if not schedule:
-        return render_template('schedules.html', error='일정을 찾을 수 없습니다.')
+        return render_template('edit_schedule.html', schedule=None, error='일정을 찾을 수 없습니다.')
+    
     if request.method == 'POST':
+        # 폼 데이터 가져오기
         title = request.form.get('title')
+        description = request.form.get('description', '')
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
         destination = request.form.get('destination')
-        if not title or not start_date or not end_date or not destination:
-            return render_template('edit_schedule.html', schedule=schedule, error='제목, 시작일, 종료일, 목적지는 필수입니다.')
+        price = request.form.get('price', 0)
+        max_people = request.form.get('max_people', 1)
+        status = request.form.get('status', 'Active')
+        duration = request.form.get('duration', '')
+        region = request.form.get('region', '')
+        meeting_date = request.form.get('meeting_date', '')
+        meeting_time = request.form.get('meeting_time', '')
+        meeting_place = request.form.get('meeting_place', '')
+        manager = request.form.get('manager', '')
+        reservation_maker = request.form.get('reservation_maker', '')
+        reservation_maker_contact = request.form.get('reservation_maker_contact', '')
+        important_docs = request.form.get('important_docs', '')
+        currency_info = request.form.get('currency_info', '')
+        other_items = request.form.get('other_items', '')
+        memo = request.form.get('memo', '')
+
+        # 필수 필드 검증
+        errors = {}
+        if not title:
+            errors['title'] = '일정 제목은 필수입니다.'
+        if not start_date:
+            errors['start_date'] = '시작일은 필수입니다.'
+        if not end_date:
+            errors['end_date'] = '종료일은 필수입니다.'
+        if not destination:
+            errors['destination'] = '목적지는 필수입니다.'
+
+        if errors:
+            return render_template('edit_schedule.html', schedule=schedule, errors=errors, error='필수 정보를 모두 입력해주세요.')
+
+        # 가격과 최대 인원 숫자 변환
+        try:
+            price = float(price) if price else 0
+            max_people = int(max_people) if max_people else 1
+        except ValueError:
+            return render_template('edit_schedule.html', schedule=schedule, error='가격과 최대 인원은 숫자로 입력해주세요.')
+
         conn = get_db_connection()
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
+        
         try:
             cursor.execute("""
                 UPDATE schedules
-                SET title = ?, start_date = ?, end_date = ?, destination = ?, updated_at = ?
+                SET title = ?, description = ?, start_date = ?, end_date = ?, destination = ?,
+                    price = ?, max_people = ?, status = ?, duration = ?, region = ?, 
+                    meeting_date = ?, meeting_time = ?, meeting_place = ?, manager = ?,
+                    reservation_maker = ?, reservation_maker_contact = ?, important_docs = ?,
+                    currency_info = ?, other_items = ?, memo = ?, updated_at = ?
                 WHERE id = ?
-            """, (title, start_date, end_date, destination, current_time, schedule_id))
+            """, (
+                title, description, start_date, end_date, destination, price, max_people,
+                status, duration, region, meeting_date, meeting_time, meeting_place,
+                manager, reservation_maker, reservation_maker_contact, important_docs,
+                currency_info, other_items, memo, current_time, schedule_id
+            ))
             conn.commit()
             conn.close()
             return redirect(url_for('schedule.schedules_page'))
@@ -352,4 +450,5 @@ def edit_schedule_page(schedule_id):
             conn.close()
             print(f'일정 수정 오류: {e}')
             return render_template('edit_schedule.html', schedule=schedule, error='일정 수정 중 오류가 발생했습니다.')
+    
     return render_template('edit_schedule.html', schedule=schedule) 
