@@ -464,6 +464,23 @@ def edit_reservation_page(reservation_id):
         current_time = datetime.now().isoformat()
         
         try:
+            # 변경된 필드 추적
+            changes = []
+            if str(reservation['customer_id']) != str(customer_id):
+                changes.append(f"고객ID: {reservation['customer_id']} → {customer_id}")
+            if str(reservation['schedule_id']) != str(schedule_id):
+                changes.append(f"일정ID: {reservation['schedule_id']} → {schedule_id}")
+            if reservation['status'] != status:
+                changes.append(f"상태: {reservation['status']} → {status}")
+            if reservation['booking_date'] != booking_date:
+                changes.append(f"예약일: {reservation['booking_date']} → {booking_date}")
+            if reservation['number_of_people'] != number_of_people:
+                changes.append(f"인원수: {reservation['number_of_people']} → {number_of_people}")
+            if reservation['total_price'] != total_price:
+                changes.append(f"총금액: {reservation['total_price']} → {total_price}")
+            if reservation['notes'] != notes:
+                changes.append(f"메모: {reservation['notes']} → {notes}")
+            
             cursor.execute("""
                 UPDATE reservations
                 SET customer_id = ?, schedule_id = ?, status = ?, booking_date = ?, number_of_people = ?, total_price = ?, notes = ?, updated_at = ?
@@ -472,15 +489,16 @@ def edit_reservation_page(reservation_id):
             conn.commit()
             
             # 변경 로그 기록
-            log_reservation_change(reservation_id, 'UPDATE', 'all', None, f'예약 수정: 상태 {status}, 인원 {number_of_people}', 'admin')
+            if changes:
+                change_description = f'예약 수정: {", ".join(changes)}'
+            else:
+                change_description = '예약 수정 (변경사항 없음)'
             
-            cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
-            updated_reservation = cursor.fetchone()
+            log_reservation_change(reservation_id, 'UPDATE', 'all', None, change_description, 'admin')
+            
             conn.close()
-            updated_reservation_data = dict(updated_reservation)
-            updated_reservation_data['createdAt'] = updated_reservation_data.pop('created_at')
-            updated_reservation_data['updatedAt'] = updated_reservation_data.pop('updated_at')
-            return jsonify(updated_reservation_data)
+            flash('예약이 성공적으로 수정되었습니다.', 'success')
+            return redirect(url_for('reservation.reservations_page'))
         except Exception as e:
             conn.close()
             print(f'예약 수정 오류: {e}')
