@@ -46,13 +46,32 @@ def dashboard():
         """)
         recent_reservations_list = cursor.fetchall()
         
-        # 시스템 알림 (최근 10개)
+        # 금일 출발 일정 (예약 포함)
+        today_str = datetime.now().strftime('%Y-%m-%d')
         cursor.execute("""
-            SELECT * FROM audit_logs
-            ORDER BY changed_at DESC
-            LIMIT 10
-        """)
-        system_notifications = cursor.fetchall()
+            SELECT s.id, s.title, s.start_date, s.destination, 
+                   GROUP_CONCAT(c.name || ' (' || r.number_of_people || '명)', ', ') AS booked_customers
+            FROM schedules s
+            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status = 'Confirmed'
+            LEFT JOIN customers c ON r.customer_id = c.id
+            WHERE s.start_date = ?
+            GROUP BY s.id, s.title, s.start_date, s.destination
+            ORDER BY s.start_date ASC, s.title ASC
+        """, (today_str,))
+        today_departures = cursor.fetchall()
+
+        # 금일 도착 일정 (예약 포함)
+        cursor.execute("""
+            SELECT s.id, s.title, s.end_date, s.destination,
+                   GROUP_CONCAT(c.name || ' (' || r.number_of_people || '명)', ', ') AS booked_customers
+            FROM schedules s
+            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status = 'Confirmed'
+            LEFT JOIN customers c ON r.customer_id = c.id
+            WHERE s.end_date = ?
+            GROUP BY s.id, s.title, s.end_date, s.destination
+            ORDER BY s.end_date ASC, s.title ASC
+        """, (today_str,))
+        today_arrivals = cursor.fetchall()
         
         conn.close()
         
@@ -63,7 +82,8 @@ def dashboard():
                              active_schedules=active_schedules,
                              recent_reservations=recent_reservations,
                              recent_reservations_list=recent_reservations_list,
-                             system_notifications=system_notifications)
+                             today_departures=today_departures,
+                             today_arrivals=today_arrivals)
     except Exception as e:
         print(f'대시보드 로드 오류: {e}')
         return render_template('dashboard.html', error='대시보드를 불러오는 중 오류가 발생했습니다.')

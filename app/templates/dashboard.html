@@ -126,7 +126,98 @@
         </div>
     </div>
 
-    <!-- 최근 활동 -->
+    <!-- 금일 출발 일정 및 금일 도착 일정 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 금일 출발 일정 -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    금일 출발 일정
+                </h3>
+                {% if today_departures %}
+                    <div class="flow-root">
+                        <ul class="-my-5 divide-y divide-gray-200">
+                            {% for schedule in today_departures %}
+                            <li class="py-4">
+                                <div class="flex items-center space-x-4">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-plane-departure text-blue-500"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 truncate">
+                                            {{ schedule.title }} ({{ schedule.destination }})
+                                        </p>
+                                        {% if schedule.booked_customers %}
+                                            <p class="text-sm text-gray-500">
+                                                예약자: {{ schedule.booked_customers }}
+                                            </p>
+                                        {% else %}
+                                            <p class="text-sm text-gray-500">예약 없음</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-shrink-0 text-sm text-gray-500">
+                                        출발일: {{ schedule.start_date | format_date }}
+                                    </div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-plane-departure text-gray-400 text-3xl mb-4"></i>
+                        <p class="text-gray-500">오늘 출발하는 일정이 없습니다.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 금일 도착 일정 -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    금일 도착 일정
+                </h3>
+                {% if today_arrivals %}
+                    <div class="flow-root">
+                        <ul class="-my-5 divide-y divide-gray-200">
+                            {% for schedule in today_arrivals %}
+                            <li class="py-4">
+                                <div class="flex items-center space-x-4">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-plane-arrival text-green-500"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 truncate">
+                                            {{ schedule.title }} ({{ schedule.destination }})
+                                        </p>
+                                        {% if schedule.booked_customers %}
+                                            <p class="text-sm text-gray-500">
+                                                예약자: {{ schedule.booked_customers }}
+                                            </p>
+                                        {% else %}
+                                            <p class="text-sm text-gray-500">예약 없음</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-shrink-0 text-sm text-gray-500">
+                                        도착일: {{ schedule.end_date | format_date }}
+                                    </div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-plane-arrival text-gray-400 text-3xl mb-4"></i>
+                        <p class="text-gray-500">오늘 도착하는 일정이 없습니다.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 기존 최근 활동 (최근 예약만 유지) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- 최근 예약 -->
         <div class="bg-white shadow rounded-lg">
@@ -171,125 +262,6 @@
                         <p class="text-gray-500">아직 예약이 없습니다.</p>
                     </div>
                 {% endif %}
-            </div>
-        </div>
-
-        <!-- 시스템 알림 -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    시스템 알림
-                </h3>
-                {% if system_notifications %}
-                    <div class="flow-root">
-                        <ul class="-my-5 divide-y divide-gray-200">
-                            {% for notification in system_notifications %}
-                            <li class="py-4">
-                                <div class="flex items-center space-x-4">
-                                    <div class="flex-shrink-0">
-                                        <i class="fas fa-bell text-blue-500"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 truncate">
-                                            {{ notification.action }} - {{ notification.table_name }}
-                                        </p>
-                                        <p class="text-sm text-gray-500">
-                                            {{ notification.details or '변경사항이 기록되었습니다.' }}
-                                        </p>
-                                    </div>
-                                    <div class="flex-shrink-0 text-sm text-gray-500">
-                                        {{ notification.changed_at | format_datetime }}
-                                    </div>
-                                </div>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    <div class="mt-6">
-                        <a href="{{ url_for('audit.audit_logs_page') }}" 
-                           class="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                            모든 알림 보기
-                        </a>
-                    </div>
-                {% else %}
-                    <div class="text-center py-8">
-                        <i class="fas fa-bell text-gray-400 text-3xl mb-4"></i>
-                        <p class="text-gray-500">아직 알림이 없습니다.</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- 빠른 액션 -->
-    <div class="bg-white shadow rounded-lg">
-        <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
-                빠른 액션
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <a href="{{ url_for('customer.create_customer_page') }}" 
-                   class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg border border-gray-200 hover:border-blue-300">
-                    <div>
-                        <span class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
-                            <i class="fas fa-user-plus text-lg"></i>
-                        </span>
-                    </div>
-                    <div class="mt-8">
-                        <h3 class="text-lg font-medium">
-                            <span class="absolute inset-0" aria-hidden="true"></span>
-                            새 고객 추가
-                        </h3>
-                        <p class="mt-2 text-sm text-gray-500">
-                            새로운 고객 정보를 등록합니다.
-                        </p>
-                    </div>
-                    <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
-                        <i class="fas fa-arrow-right"></i>
-                    </span>
-                </a>
-
-                <a href="{{ url_for('schedule.create_schedule_page') }}" 
-                   class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-green-500 rounded-lg border border-gray-200 hover:border-green-300">
-                    <div>
-                        <span class="rounded-lg inline-flex p-3 bg-green-50 text-green-700 ring-4 ring-white">
-                            <i class="fas fa-calendar-plus text-lg"></i>
-                        </span>
-                    </div>
-                    <div class="mt-8">
-                        <h3 class="text-lg font-medium">
-                            <span class="absolute inset-0" aria-hidden="true"></span>
-                            새 일정 추가
-                        </h3>
-                        <p class="mt-2 text-sm text-gray-500">
-                            새로운 여행 일정을 등록합니다.
-                        </p>
-                    </div>
-                    <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
-                        <i class="fas fa-arrow-right"></i>
-                    </span>
-                </a>
-
-                <a href="{{ url_for('reservation.create_reservation_page') }}" 
-                   class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-purple-500 rounded-lg border border-gray-200 hover:border-purple-300">
-                    <div>
-                        <span class="rounded-lg inline-flex p-3 bg-purple-50 text-purple-700 ring-4 ring-white">
-                            <i class="fas fa-ticket-alt text-lg"></i>
-                        </span>
-                    </div>
-                    <div class="mt-8">
-                        <h3 class="text-lg font-medium">
-                            <span class="absolute inset-0" aria-hidden="true"></span>
-                            새 예약 추가
-                        </h3>
-                        <p class="mt-2 text-sm text-gray-500">
-                            새로운 여행 예약을 등록합니다.
-                        </p>
-                    </div>
-                    <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
-                        <i class="fas fa-arrow-right"></i>
-                    </span>
-                </a>
             </div>
         </div>
     </div>
