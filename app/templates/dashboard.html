@@ -195,13 +195,10 @@
 // 현재 날짜 표시
 function updateCurrentDate() {
     const now = new Date();
-    const options = { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric',
-        weekday: 'long'
-    };
-    const dateStr = now.toLocaleDateString('ko-KR', options);
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     document.getElementById('current-date').textContent = dateStr;
 }
 

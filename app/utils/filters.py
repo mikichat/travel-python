@@ -35,7 +35,7 @@ def format_date(date_str):
     try:
         from datetime import datetime
         date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-        return date_obj.strftime('%Y년 %m월 %d일')
+        return date_obj.strftime('%Y-%m-%d')
     except:
         return date_str
 
@@ -46,6 +46,6 @@ def format_datetime(datetime_str):
     try:
         from datetime import datetime
         date_obj = datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
-        return date_obj.strftime('%Y년 %m월 %d일 %H:%M')
+        return date_obj.strftime('%Y-%m-%d %H:%M')
     except:
         return datetime_str 

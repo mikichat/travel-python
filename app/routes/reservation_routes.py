@@ -44,9 +44,10 @@ def reservations_page():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 기본 쿼리
+        # 기본 쿼리 - schedules 테이블의 start_date, end_date도 조인
         query = """
-            SELECT r.*, c.name as customer_name, s.title as schedule_title 
+            SELECT r.*, c.name as customer_name, s.title as schedule_title, 
+                   s.start_date as travel_start_date, s.end_date as travel_end_date
             FROM reservations r
             LEFT JOIN customers c ON r.customer_id = c.id
             LEFT JOIN schedules s ON r.schedule_id = s.id
@@ -69,12 +70,12 @@ def reservations_page():
             params.append(status)
         
         if date_from:
-            conditions.append("r.booking_date >= ?")
-            params.append(f"{date_from}T00:00:00")
+            conditions.append("s.start_date >= ?")
+            params.append(date_from)
         
         if date_to:
-            conditions.append("r.booking_date <= ?")
-            params.append(f"{date_to}T23:59:59")
+            conditions.append("s.start_date <= ?")
+            params.append(date_to)
         
         # WHERE 절 추가
         if conditions:
@@ -98,6 +99,9 @@ def reservations_page():
             reservation_dict['bookingDate'] = reservation_dict.get('booking_date', '')
             reservation_dict['numberOfPeople'] = reservation_dict.get('number_of_people', 0)
             reservation_dict['totalPrice'] = reservation_dict.get('total_price', 0)
+            # 여행 날짜 추가
+            reservation_dict['travelStartDate'] = reservation_dict.get('travel_start_date', '')
+            reservation_dict['travelEndDate'] = reservation_dict.get('travel_end_date', '')
             reservations_list.append(reservation_dict)
         
         return render_template('reservations.html', reservations=reservations_list)
@@ -111,9 +115,10 @@ def get_reservations():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        # 고객명과 일정명을 조인하여 조회
+        # 고객명과 일정명을 조인하여 조회 - 여행 날짜도 포함
         cursor.execute("""
-            SELECT r.*, c.name as customer_name, s.title as schedule_title 
+            SELECT r.*, c.name as customer_name, s.title as schedule_title,
+                   s.start_date as travel_start_date, s.end_date as travel_end_date
             FROM reservations r
             LEFT JOIN customers c ON r.customer_id = c.id
             LEFT JOIN schedules s ON r.schedule_id = s.id
@@ -128,6 +133,8 @@ def get_reservations():
             res_data['updatedAt'] = res_data.pop('updated_at')
             res_data['customerName'] = res_data.pop('customer_name', '알 수 없음')
             res_data['scheduleTitle'] = res_data.pop('schedule_title', '알 수 없음')
+            res_data['travelStartDate'] = res_data.pop('travel_start_date', '')
+            res_data['travelEndDate'] = res_data.pop('travel_end_date', '')
             reservations_list.append(res_data)
         return jsonify(reservations_list)
     except Exception as e:
