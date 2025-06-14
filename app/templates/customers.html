@@ -95,21 +95,33 @@
 
     <!-- 버튼 그룹 -->
     <div class="flex justify-between items-center mb-6">
-        <a href="{{ url_for('customer.create_customer_page') }}"
-           class="px-5 py-2 bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-            <i class="fas fa-plus mr-2"></i>새 고객 추가
-        </a>
-        <a href="{{ url_for('customer.export_customers_csv',
-                           search_term=request.args.get('search_term', ''),
-                           sort_by=request.args.get('sort_by', 'name'),
-                           sort_order=request.args.get('sort_order', 'asc'),
-                           has_email=request.args.get('has_email', 'false'),
-                           has_phone=request.args.get('has_phone', 'false'),
-                           has_address=request.args.get('has_address', 'false')
-                           ) }}"
-           class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            <i class="fas fa-file-csv mr-2"></i>CSV 내보내기
-        </a>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('customer.create_customer_page') }}"
+               class="px-5 py-2 bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                <i class="fas fa-plus mr-2"></i>새 고객 추가
+            </a>
+            <a href="{{ url_for('customer.import_customers_excel') }}"
+               class="px-5 py-2 bg-yellow-600 text-white font-semibold rounded-md shadow-sm hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                <i class="fas fa-upload mr-2"></i>엑셀 업로드
+            </a>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('customer.export_customers_excel') }}"
+               class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <i class="fas fa-file-excel mr-2"></i>엑셀 내보내기
+            </a>
+            <a href="{{ url_for('customer.export_customers_csv',
+                               search_term=request.args.get('search_term', ''),
+                               sort_by=request.args.get('sort_by', 'name'),
+                               sort_order=request.args.get('sort_order', 'asc'),
+                               has_email=request.args.get('has_email', 'false'),
+                               has_phone=request.args.get('has_phone', 'false'),
+                               has_address=request.args.get('has_address', 'false')
+                               ) }}"
+               class="px-5 py-2 bg-gray-600 text-white font-semibold rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                <i class="fas fa-file-csv mr-2"></i>CSV 내보내기
+            </a>
+        </div>
     </div>
 
     <!-- 고객 목록 테이블 -->

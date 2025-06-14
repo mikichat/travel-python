@@ -7,6 +7,7 @@ from app.utils.errors import APIError
 from app.utils.auth import jwt_required
 from app.utils.filters import format_date, format_datetime
 from app.utils.audit import log_customer_change
+from app.utils.excel_utils import export_customers_to_excel, import_customers_from_excel
 import sqlite3
 
 customer_bp = Blueprint('customer', __name__)
@@ -452,3 +453,62 @@ def edit_customer_page(customer_id):
             return render_template('edit_customer.html', customer=customer, error='고객 수정 중 오류가 발생했습니다.')
 
     return render_template('edit_customer.html', customer=customer)
+
+@customer_bp.route('/export-excel')
+@jwt_required(current_app)
+def export_customers_excel():
+    """고객 데이터를 엑셀 파일로 내보내기"""
+    try:
+        excel_data = export_customers_to_excel()
+        
+        response = make_response(excel_data)
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers['Content-Disposition'] = 'attachment; filename=customers.xlsx'
+        
+        return response
+    except Exception as e:
+        print(f'고객 엑셀 내보내기 오류: {e}')
+        flash('엑셀 파일 생성 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('customer.customers_page'))
+
+@customer_bp.route('/import-excel', methods=['GET', 'POST'])
+@jwt_required(current_app)
+def import_customers_excel():
+    """엑셀 파일에서 고객 데이터 가져오기"""
+    if request.method == 'GET':
+        return render_template('import_customers_excel.html')
+    
+    try:
+        if 'file' not in request.files:
+            flash('파일을 선택해주세요.', 'error')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('파일을 선택해주세요.', 'error')
+            return redirect(request.url)
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            flash('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error')
+            return redirect(request.url)
+        
+        # 파일 내용 읽기
+        file_content = file.read()
+        
+        # 엑셀 데이터 가져오기
+        result = import_customers_from_excel(file_content)
+        
+        if result['success_count'] > 0:
+            flash(f'{result["success_count"]}명의 고객이 성공적으로 추가되었습니다.', 'success')
+        
+        if result['error_count'] > 0:
+            flash(f'{result["error_count"]}개의 오류가 발생했습니다.', 'error')
+            for error in result['errors']:
+                flash(error, 'error')
+        
+        return redirect(url_for('customer.customers_page'))
+        
+    except Exception as e:
+        print(f'고객 엑셀 가져오기 오류: {e}')
+        flash('엑셀 파일 처리 중 오류가 발생했습니다.', 'error')
+        return redirect(request.url)
