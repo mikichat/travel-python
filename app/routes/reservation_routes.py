@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash
 from datetime import datetime
 import csv
 import io
@@ -6,6 +6,8 @@ from database import get_db_connection
 from app.utils.errors import APIError
 from app.utils.auth import jwt_required
 from app.utils.filters import format_date, format_datetime, format_currency, get_status_color, get_status_text
+from app.utils.audit import log_reservation_change
+import sqlite3
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -168,6 +170,10 @@ def create_reservation():
         conn.commit()
 
         new_reservation_id = cursor.lastrowid
+        
+        # 변경 로그 기록
+        log_reservation_change(new_reservation_id, 'CREATE', 'all', None, f'예약 생성: 고객ID {customer_id}, 일정ID {schedule_id}', 'admin')
+        
         cursor.execute('SELECT * FROM reservations WHERE id = ?', (new_reservation_id,))
         new_reservation = cursor.fetchone()
         conn.close()
@@ -227,9 +233,14 @@ def update_reservation(reservation_id):
             WHERE id = ?
         """, (status, booking_date, number_of_people, total_price, notes, current_time, reservation_id))
         conn.commit()
+        
         if cursor.rowcount == 0:
             conn.close()
             raise APIError('예약을 찾을 수 없습니다.', 404)
+        
+        # 변경 로그 기록
+        log_reservation_change(reservation_id, 'UPDATE', 'all', None, f'예약 수정: 상태 {status}, 인원 {number_of_people}', 'admin')
+        
         cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
         updated_reservation = cursor.fetchone()
         conn.close()
@@ -249,11 +260,23 @@ def delete_reservation(reservation_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # 삭제 전 예약 정보 조회
+        cursor.execute('SELECT customer_id, schedule_id FROM reservations WHERE id = ?', (reservation_id,))
+        reservation = cursor.fetchone()
+        customer_id = reservation[0] if reservation else 'Unknown'
+        schedule_id = reservation[1] if reservation else 'Unknown'
+        
         cursor.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
         conn.commit()
+        
         if cursor.rowcount == 0:
             conn.close()
             raise APIError('예약을 찾을 수 없습니다.', 404)
+        
+        # 변경 로그 기록
+        log_reservation_change(reservation_id, 'DELETE', 'all', None, f'예약 삭제: 고객ID {customer_id}, 일정ID {schedule_id}', 'admin')
+        
         conn.close()
         return jsonify({'message': '예약이 삭제되었습니다.'})
     except APIError:
@@ -268,8 +291,19 @@ def delete_reservation_page(reservation_id):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # 삭제 전 예약 정보 조회
+        cursor.execute('SELECT customer_id, schedule_id FROM reservations WHERE id = ?', (reservation_id,))
+        reservation = cursor.fetchone()
+        customer_id = reservation[0] if reservation else 'Unknown'
+        schedule_id = reservation[1] if reservation else 'Unknown'
+        
         cursor.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
         conn.commit()
+        
+        # 변경 로그 기록
+        log_reservation_change(reservation_id, 'DELETE', 'all', None, f'예약 삭제: 고객ID {customer_id}, 일정ID {schedule_id}', 'admin')
+        
         conn.close()
         return redirect(url_for('reservation.reservations_page'))
     except Exception as e:
@@ -436,8 +470,17 @@ def edit_reservation_page(reservation_id):
                 WHERE id = ?
             """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, reservation_id))
             conn.commit()
+            
+            # 변경 로그 기록
+            log_reservation_change(reservation_id, 'UPDATE', 'all', None, f'예약 수정: 상태 {status}, 인원 {number_of_people}', 'admin')
+            
+            cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
+            updated_reservation = cursor.fetchone()
             conn.close()
-            return redirect(url_for('reservation.reservations_page'))
+            updated_reservation_data = dict(updated_reservation)
+            updated_reservation_data['createdAt'] = updated_reservation_data.pop('created_at')
+            updated_reservation_data['updatedAt'] = updated_reservation_data.pop('updated_at')
+            return jsonify(updated_reservation_data)
         except Exception as e:
             conn.close()
             print(f'예약 수정 오류: {e}')

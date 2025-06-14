@@ -111,9 +111,17 @@
                     <span>일정 관리</span>
                 </a>
 
-                <a href="{{ url_for('reservation.reservations_page') }}" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors {% if 'reservation.' in request.endpoint %}bg-blue-100 text-blue-700{% endif %}">
-                    <i class="fas fa-ticket-alt mr-3"></i>
-                    <span>예약 관리</span>
+                <a href="{{ url_for('reservation.reservations_page') }}" 
+                   class="text-gray-600 hover:bg-gray-50 hover:text-gray-900 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                    <i class="fas fa-calendar-check text-gray-400 group-hover:text-gray-500 mr-3 flex-shrink-0"></i>
+                    예약 관리
+                </a>
+
+                <!-- 변경 로그 -->
+                <a href="{{ url_for('audit.audit_logs_page') }}" 
+                   class="text-gray-600 hover:bg-gray-50 hover:text-gray-900 group flex items-center px-2 py-2 text-sm font-medium rounded-md">
+                    <i class="fas fa-history text-gray-400 group-hover:text-gray-500 mr-3 flex-shrink-0"></i>
+                    변경 로그
                 </a>
 
                 <!-- 구분선 -->

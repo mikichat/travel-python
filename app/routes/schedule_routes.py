@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash
 from datetime import datetime
 import csv
 import io
@@ -6,6 +6,8 @@ from database import get_db_connection
 from app.utils.errors import APIError
 from app.utils.auth import jwt_required
 from app.utils.filters import format_date, format_datetime, format_currency
+from app.utils.audit import log_schedule_change
+import sqlite3
 
 schedule_bp = Blueprint('schedule', __name__)
 
@@ -170,6 +172,10 @@ def create_schedule():
         conn.commit()
 
         new_schedule_id = cursor.lastrowid
+        
+        # 변경 로그 기록
+        log_schedule_change(new_schedule_id, 'CREATE', 'all', None, f'일정 생성: {title}', 'admin')
+        
         cursor.execute('SELECT * FROM schedules WHERE id = ?', (new_schedule_id,))
         new_schedule = cursor.fetchone()
         conn.close()
@@ -256,9 +262,14 @@ def update_schedule(schedule_id):
             other_items, memo, current_time, schedule_id
         ))
         conn.commit()
+        
         if cursor.rowcount == 0:
             conn.close()
             raise APIError('일정을 찾을 수 없습니다.', 404)
+        
+        # 변경 로그 기록
+        log_schedule_change(schedule_id, 'UPDATE', 'all', None, f'일정 수정: {title}', 'admin')
+        
         cursor.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,))
         updated_schedule = cursor.fetchone()
         conn.close()
@@ -283,11 +294,22 @@ def delete_schedule(schedule_id):
         if reservations_count > 0:
             conn.close()
             raise APIError('예약이 있는 일정은 삭제할 수 없습니다.', 400)
+        
+        # 삭제 전 일정 정보 조회
+        cursor.execute('SELECT title FROM schedules WHERE id = ?', (schedule_id,))
+        schedule = cursor.fetchone()
+        schedule_title = schedule[0] if schedule else 'Unknown'
+        
         cursor.execute('DELETE FROM schedules WHERE id = ?', (schedule_id,))
         conn.commit()
+        
         if cursor.rowcount == 0:
             conn.close()
             raise APIError('일정을 찾을 수 없습니다.', 404)
+        
+        # 변경 로그 기록
+        log_schedule_change(schedule_id, 'DELETE', 'all', None, f'일정 삭제: {schedule_title}', 'admin')
+        
         conn.close()
         return jsonify({'message': '일정이 삭제되었습니다.'})
     except APIError:
@@ -500,6 +522,10 @@ def edit_schedule_page(schedule_id):
                 currency_info, other_items, memo, current_time, schedule_id
             ))
             conn.commit()
+            
+            # 변경 로그 기록
+            log_schedule_change(schedule_id, 'UPDATE', 'all', None, f'일정 수정: {title}', 'admin')
+            
             conn.close()
             return redirect(url_for('schedule.schedules_page'))
         except Exception as e:

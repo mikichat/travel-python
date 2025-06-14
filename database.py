@@ -85,6 +85,22 @@ def initialize_database():
             FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE CASCADE
         )
     """)
+
+    # audit_logs 테이블 생성 (변경 로그)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            table_name TEXT NOT NULL,
+            record_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            field_name TEXT NOT NULL,
+            old_value TEXT,
+            new_value TEXT,
+            changed_at TEXT NOT NULL,
+            changed_by TEXT NOT NULL,
+            details TEXT
+        )
+    """)
     
     conn.commit()
     conn.close() 

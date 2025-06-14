@@ -1,6 +1,15 @@
 from flask import Flask
 import os
 from app.utils.errors import register_error_handlers
+from flask_jwt_extended import JWTManager
+from database import initialize_database
+from app.routes.auth_routes import auth_bp
+from app.routes.customer_routes import customer_bp
+from app.routes.schedule_routes import schedule_bp
+from app.routes.reservation_routes import reservation_bp
+from app.routes.dashboard_routes import dashboard_bp
+from app.routes.audit_routes import audit_bp
+from app.utils.filters import register_filters
 
 def create_app():
     """
@@ -11,6 +20,15 @@ def create_app():
     # 기본 설정
     app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET', 'your-secret-key')
     app.config['FLASK_SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
+    app.config['JWT_SECRET_KEY'] = 'jwt-secret-string'
+    app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+    app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+    
+    # JWT 초기화
+    jwt = JWTManager(app)
+    
+    # 데이터베이스 초기화
+    initialize_database()
     
     # 오류 핸들러 등록
     register_error_handlers(app)
@@ -37,14 +55,15 @@ def create_app():
         if status == 'Cancelled': return '취소'
         return status
     
-    # 블루프린트 등록
-    from app.routes import auth_routes, customer_routes, schedule_routes, reservation_routes
-    from app.routes import dashboard_bp
+    # 필터 등록
+    register_filters(app)
     
-    app.register_blueprint(auth_routes.auth_bp)
+    # 블루프린트 등록
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(customer_bp, url_prefix='/customers')
+    app.register_blueprint(schedule_bp, url_prefix='/schedules')
+    app.register_blueprint(reservation_bp, url_prefix='/reservations')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-    app.register_blueprint(customer_routes.customer_bp, url_prefix='/customers')
-    app.register_blueprint(schedule_routes.schedule_bp, url_prefix='/schedules')
-    app.register_blueprint(reservation_routes.reservation_bp, url_prefix='/reservations')
+    app.register_blueprint(audit_bp, url_prefix='/audit')
     
     return app 

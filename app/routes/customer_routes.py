@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash
 from datetime import datetime
 import csv
 import io
@@ -6,6 +6,8 @@ from database import get_db_connection
 from app.utils.errors import APIError
 from app.utils.auth import jwt_required
 from app.utils.filters import format_date, format_datetime
+from app.utils.audit import log_customer_change
+import sqlite3
 
 customer_bp = Blueprint('customer', __name__)
 
@@ -137,25 +139,22 @@ def create_customer():
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
 
+        # 고객 생성
         cursor.execute("""
-            INSERT INTO customers (name, phone, email, address, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (name, phone, email, address, notes, current_time, current_time))
-        conn.commit()
-
+            INSERT INTO customers (name, email, phone, address, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (name, email, phone, address, current_time, current_time))
+        
         new_customer_id = cursor.lastrowid
-        cursor.execute('SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers WHERE id = ?', (new_customer_id,))
-        new_customer = cursor.fetchone()
+        
+        # 변경 로그 기록
+        log_customer_change(new_customer_id, 'CREATE', 'all', None, f'고객 생성: {name}', 'admin')
+        
+        conn.commit()
         conn.close()
-
-        if not new_customer:
-            raise APIError('고객 등록 후 정보를 찾을 수 없습니다.', 500)
-
-        new_customer_data = dict(new_customer)
-        new_customer_data['createdAt'] = new_customer_data.pop('created_at')
-        new_customer_data['updatedAt'] = new_customer_data.pop('updated_at')
-
-        return jsonify(new_customer_data), 201
+        
+        flash('고객이 성공적으로 추가되었습니다.', 'success')
+        return redirect(url_for('customer.customers_page'))
     except APIError:
         raise
     except Exception as e:
@@ -217,6 +216,9 @@ def update_customer(customer_id):
             conn.close()
             raise APIError('고객을 찾을 수 없습니다.', 404)
 
+        # 변경 로그 기록
+        log_customer_change(customer_id, 'UPDATE', 'all', None, f'고객 정보 수정: {name}', 'admin')
+
         cursor.execute('SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers WHERE id = ?', (customer_id,))
         updated_customer = cursor.fetchone()
         conn.close()
@@ -248,15 +250,20 @@ def delete_customer(customer_id):
             conn.close()
             raise APIError('예약이 있는 고객은 삭제할 수 없습니다.', 400)
 
+        # 삭제 전 고객 정보 조회
+        cursor.execute('SELECT name FROM customers WHERE id = ?', (customer_id,))
+        customer = cursor.fetchone()
+        customer_name = customer[0] if customer else 'Unknown'
+
         cursor.execute('DELETE FROM customers WHERE id = ?', (customer_id,))
         conn.commit()
-
-        if cursor.rowcount == 0:
-            conn.close()
-            raise APIError('고객을 찾을 수 없습니다.', 404)
+        
+        # 변경 로그 기록
+        log_customer_change(customer_id, 'DELETE', 'all', None, f'고객 삭제: {customer_name}', 'admin')
         
         conn.close()
-        return jsonify({'message': '고객이 삭제되었습니다.'})
+
+        return redirect(url_for('customer.customers_page'))
     except APIError:
         raise
     except Exception as e:
@@ -353,6 +360,13 @@ def create_customer_page():
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (name, phone, email, address, notes, current_time, current_time))
             conn.commit()
+            
+            # 새로 생성된 고객 ID 가져오기
+            new_customer_id = cursor.lastrowid
+            
+            # 변경 로그 기록
+            log_customer_change(new_customer_id, 'CREATE', 'all', None, f'고객 생성: {name}', 'admin')
+            
             conn.close()
             return redirect(url_for('customer.customers_page'))
         except Exception as e:
@@ -396,6 +410,10 @@ def edit_customer_page(customer_id):
                 WHERE id = ?
             """, (name, phone, email, address, notes, current_time, customer_id))
             conn.commit()
+            
+            # 변경 로그 기록
+            log_customer_change(customer_id, 'UPDATE', 'all', None, f'고객 정보 수정: {name}', 'admin')
+            
             conn.close()
             return redirect(url_for('customer.customers_page'))
         except Exception as e:

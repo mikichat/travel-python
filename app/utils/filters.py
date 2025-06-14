@@ -48,4 +48,12 @@ def format_datetime(datetime_str):
         date_obj = datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
         return date_obj.strftime('%Y-%m-%d %H:%M')
     except:
-        return datetime_str 
+        return datetime_str
+
+def register_filters(app):
+    """모든 필터를 Flask 앱에 등록"""
+    app.template_filter('get_status_color')(get_status_color)
+    app.template_filter('get_status_text')(get_status_text)
+    app.template_filter('format_currency')(format_currency)
+    app.template_filter('format_date')(format_date)
+    app.template_filter('format_datetime')(format_datetime) 
