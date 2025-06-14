@@ -171,9 +171,6 @@ def create_reservation():
 
         new_reservation_id = cursor.lastrowid
         
-        # 변경 로그 기록
-        log_reservation_change(new_reservation_id, 'CREATE', 'all', None, f'예약 생성: 고객ID {customer_id}, 일정ID {schedule_id}', 'admin')
-        
         cursor.execute('SELECT * FROM reservations WHERE id = ?', (new_reservation_id,))
         new_reservation = cursor.fetchone()
         conn.close()
@@ -225,6 +222,15 @@ def update_reservation(reservation_id):
 
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # 기존 예약 정보 조회
+        cursor.execute('SELECT status, booking_date, number_of_people, total_price, notes FROM reservations WHERE id = ?', (reservation_id,))
+        old_reservation = cursor.fetchone()
+        
+        if not old_reservation:
+            conn.close()
+            raise APIError('예약을 찾을 수 없습니다.', 404)
+        
         current_time = datetime.now().isoformat()
 
         cursor.execute("""
@@ -238,8 +244,23 @@ def update_reservation(reservation_id):
             conn.close()
             raise APIError('예약을 찾을 수 없습니다.', 404)
         
-        # 변경 로그 기록
-        log_reservation_change(reservation_id, 'UPDATE', 'all', None, f'예약 수정: 상태 {status}, 인원 {number_of_people}', 'admin')
+        # 변경된 필드 추적 및 로그 기록
+        changes = []
+        if old_reservation['status'] != status:
+            changes.append(f"상태: {old_reservation['status']} → {status}")
+            log_reservation_change(reservation_id, 'UPDATE', 'status', old_reservation['status'], status, 'admin')
+        if old_reservation['booking_date'] != booking_date:
+            changes.append(f"예약일: {old_reservation['booking_date']} → {booking_date}")
+            log_reservation_change(reservation_id, 'UPDATE', 'booking_date', old_reservation['booking_date'], booking_date, 'admin')
+        if old_reservation['number_of_people'] != number_of_people:
+            changes.append(f"인원수: {old_reservation['number_of_people']} → {number_of_people}")
+            log_reservation_change(reservation_id, 'UPDATE', 'number_of_people', str(old_reservation['number_of_people']), str(number_of_people), 'admin')
+        if old_reservation['total_price'] != total_price:
+            changes.append(f"총금액: {old_reservation['total_price']} → {total_price}")
+            log_reservation_change(reservation_id, 'UPDATE', 'total_price', str(old_reservation['total_price']), str(total_price), 'admin')
+        if old_reservation['notes'] != notes:
+            changes.append(f"메모: {old_reservation['notes']} → {notes}")
+            log_reservation_change(reservation_id, 'UPDATE', 'notes', old_reservation['notes'], notes, 'admin')
         
         cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
         updated_reservation = cursor.fetchone()
@@ -274,9 +295,6 @@ def delete_reservation(reservation_id):
             conn.close()
             raise APIError('예약을 찾을 수 없습니다.', 404)
         
-        # 변경 로그 기록
-        log_reservation_change(reservation_id, 'DELETE', 'all', None, f'예약 삭제: 고객ID {customer_id}, 일정ID {schedule_id}', 'admin')
-        
         conn.close()
         return jsonify({'message': '예약이 삭제되었습니다.'})
     except APIError:
@@ -300,9 +318,6 @@ def delete_reservation_page(reservation_id):
         
         cursor.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
         conn.commit()
-        
-        # 변경 로그 기록
-        log_reservation_change(reservation_id, 'DELETE', 'all', None, f'예약 삭제: 고객ID {customer_id}, 일정ID {schedule_id}', 'admin')
         
         conn.close()
         return redirect(url_for('reservation.reservations_page'))
@@ -468,18 +483,25 @@ def edit_reservation_page(reservation_id):
             changes = []
             if str(reservation['customer_id']) != str(customer_id):
                 changes.append(f"고객ID: {reservation['customer_id']} → {customer_id}")
+                log_reservation_change(reservation_id, 'UPDATE', 'customer_id', str(reservation['customer_id']), str(customer_id), 'admin')
             if str(reservation['schedule_id']) != str(schedule_id):
                 changes.append(f"일정ID: {reservation['schedule_id']} → {schedule_id}")
+                log_reservation_change(reservation_id, 'UPDATE', 'schedule_id', str(reservation['schedule_id']), str(schedule_id), 'admin')
             if reservation['status'] != status:
                 changes.append(f"상태: {reservation['status']} → {status}")
+                log_reservation_change(reservation_id, 'UPDATE', 'status', reservation['status'], status, 'admin')
             if reservation['booking_date'] != booking_date:
                 changes.append(f"예약일: {reservation['booking_date']} → {booking_date}")
+                log_reservation_change(reservation_id, 'UPDATE', 'booking_date', reservation['booking_date'], booking_date, 'admin')
             if reservation['number_of_people'] != number_of_people:
                 changes.append(f"인원수: {reservation['number_of_people']} → {number_of_people}")
+                log_reservation_change(reservation_id, 'UPDATE', 'number_of_people', str(reservation['number_of_people']), str(number_of_people), 'admin')
             if reservation['total_price'] != total_price:
                 changes.append(f"총금액: {reservation['total_price']} → {total_price}")
+                log_reservation_change(reservation_id, 'UPDATE', 'total_price', str(reservation['total_price']), str(total_price), 'admin')
             if reservation['notes'] != notes:
                 changes.append(f"메모: {reservation['notes']} → {notes}")
+                log_reservation_change(reservation_id, 'UPDATE', 'notes', reservation['notes'], notes, 'admin')
             
             cursor.execute("""
                 UPDATE reservations
@@ -488,13 +510,12 @@ def edit_reservation_page(reservation_id):
             """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, reservation_id))
             conn.commit()
             
-            # 변경 로그 기록
-            if changes:
-                change_description = f'예약 수정: {", ".join(changes)}'
-            else:
-                change_description = '예약 수정 (변경사항 없음)'
-            
-            log_reservation_change(reservation_id, 'UPDATE', 'all', None, change_description, 'admin')
+            # 전체 변경 로그 기록 (제거됨)
+            # if changes:
+            #     change_description = f'예약 수정: {", ".join(changes)}'
+            # else:
+            #     change_description = '예약 수정 (변경사항 없음)'
+            # log_reservation_change(reservation_id, 'UPDATE', 'all', None, change_description, 'admin')
             
             conn.close()
             flash('예약이 성공적으로 수정되었습니다.', 'success')

@@ -147,9 +147,6 @@ def create_customer():
         
         new_customer_id = cursor.lastrowid
         
-        # 변경 로그 기록
-        log_customer_change(new_customer_id, 'CREATE', 'all', None, f'고객 생성: {name}', 'admin')
-        
         conn.commit()
         conn.close()
         
@@ -189,7 +186,7 @@ def get_customer_by_id(customer_id):
 @customer_bp.route('/api/customers/<int:customer_id>', methods=['PUT'])
 @jwt_required(current_app)
 def update_customer(customer_id):
-    """고객 정보 수정 API"""
+    """고객 수정 API"""
     try:
         data = request.get_json()
         name = data.get('name')
@@ -203,6 +200,15 @@ def update_customer(customer_id):
 
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # 기존 고객 정보 조회
+        cursor.execute('SELECT name, phone, email, address, notes FROM customers WHERE id = ?', (customer_id,))
+        old_customer = cursor.fetchone()
+        
+        if not old_customer:
+            conn.close()
+            raise APIError('고객을 찾을 수 없습니다.', 404)
+        
         current_time = datetime.now().isoformat()
 
         cursor.execute("""
@@ -216,9 +222,24 @@ def update_customer(customer_id):
             conn.close()
             raise APIError('고객을 찾을 수 없습니다.', 404)
 
-        # 변경 로그 기록
-        log_customer_change(customer_id, 'UPDATE', 'all', None, f'고객 정보 수정: {name}', 'admin')
-
+        # 변경된 필드 추적 및 로그 기록
+        changes = []
+        if old_customer['name'] != name:
+            changes.append(f"이름: {old_customer['name']} → {name}")
+            log_customer_change(customer_id, 'UPDATE', 'name', old_customer['name'], name, 'admin')
+        if old_customer['phone'] != phone:
+            changes.append(f"전화번호: {old_customer['phone']} → {phone}")
+            log_customer_change(customer_id, 'UPDATE', 'phone', old_customer['phone'], phone, 'admin')
+        if old_customer['email'] != email:
+            changes.append(f"이메일: {old_customer['email']} → {email}")
+            log_customer_change(customer_id, 'UPDATE', 'email', old_customer['email'], email, 'admin')
+        if old_customer['address'] != address:
+            changes.append(f"주소: {old_customer['address']} → {address}")
+            log_customer_change(customer_id, 'UPDATE', 'address', old_customer['address'], address, 'admin')
+        if old_customer['notes'] != notes:
+            changes.append(f"메모: {old_customer['notes']} → {notes}")
+            log_customer_change(customer_id, 'UPDATE', 'notes', old_customer['notes'], notes, 'admin')
+        
         cursor.execute('SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers WHERE id = ?', (customer_id,))
         updated_customer = cursor.fetchone()
         conn.close()
@@ -257,9 +278,6 @@ def delete_customer(customer_id):
 
         cursor.execute('DELETE FROM customers WHERE id = ?', (customer_id,))
         conn.commit()
-        
-        # 변경 로그 기록
-        log_customer_change(customer_id, 'DELETE', 'all', None, f'고객 삭제: {customer_name}', 'admin')
         
         conn.close()
 
@@ -364,9 +382,6 @@ def create_customer_page():
             # 새로 생성된 고객 ID 가져오기
             new_customer_id = cursor.lastrowid
             
-            # 변경 로그 기록
-            log_customer_change(new_customer_id, 'CREATE', 'all', None, f'고객 생성: {name}', 'admin')
-            
             conn.close()
             return redirect(url_for('customer.customers_page'))
         except Exception as e:
@@ -404,15 +419,30 @@ def edit_customer_page(customer_id):
         current_time = datetime.now().isoformat()
 
         try:
+            # 변경된 필드 추적
+            changes = []
+            if customer['name'] != name:
+                changes.append(f"이름: {customer['name']} → {name}")
+                log_customer_change(customer_id, 'UPDATE', 'name', customer['name'], name, 'admin')
+            if customer['phone'] != phone:
+                changes.append(f"전화번호: {customer['phone']} → {phone}")
+                log_customer_change(customer_id, 'UPDATE', 'phone', customer['phone'], phone, 'admin')
+            if customer['email'] != email:
+                changes.append(f"이메일: {customer['email']} → {email}")
+                log_customer_change(customer_id, 'UPDATE', 'email', customer['email'], email, 'admin')
+            if customer['address'] != address:
+                changes.append(f"주소: {customer['address']} → {address}")
+                log_customer_change(customer_id, 'UPDATE', 'address', customer['address'], address, 'admin')
+            if customer['notes'] != notes:
+                changes.append(f"메모: {customer['notes']} → {notes}")
+                log_customer_change(customer_id, 'UPDATE', 'notes', customer['notes'], notes, 'admin')
+            
             cursor.execute("""
                 UPDATE customers
                 SET name = ?, phone = ?, email = ?, address = ?, notes = ?, updated_at = ?
                 WHERE id = ?
             """, (name, phone, email, address, notes, current_time, customer_id))
             conn.commit()
-            
-            # 변경 로그 기록
-            log_customer_change(customer_id, 'UPDATE', 'all', None, f'고객 정보 수정: {name}', 'admin')
             
             conn.close()
             return redirect(url_for('customer.customers_page'))

@@ -173,20 +173,11 @@ def create_schedule():
 
         new_schedule_id = cursor.lastrowid
         
-        # 변경 로그 기록
-        log_schedule_change(new_schedule_id, 'CREATE', 'all', None, f'일정 생성: {title}', 'admin')
-        
         cursor.execute('SELECT * FROM schedules WHERE id = ?', (new_schedule_id,))
         new_schedule = cursor.fetchone()
         conn.close()
-
-        if not new_schedule:
-            raise APIError('일정 등록 후 정보를 찾을 수 없습니다.', 500)
-
-        new_schedule_data = dict(new_schedule)
-        new_schedule_data['createdAt'] = new_schedule_data.pop('created_at')
-        new_schedule_data['updatedAt'] = new_schedule_data.pop('updated_at')
-        return jsonify(new_schedule_data), 201
+        flash('일정이 성공적으로 추가되었습니다.', 'success')
+        return jsonify(dict(new_schedule)), 201
     except APIError:
         raise
     except Exception as e:
@@ -245,8 +236,80 @@ def update_schedule(schedule_id):
 
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # 기존 일정 정보 조회
+        cursor.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,))
+        old_schedule = cursor.fetchone()
+        
+        if not old_schedule:
+            conn.close()
+            raise APIError('일정을 찾을 수 없습니다.', 404)
+        
         current_time = datetime.now().isoformat()
 
+        # 변경된 필드 추적
+        changes = []
+        if old_schedule['title'] != title:
+            changes.append(f"제목: {old_schedule['title']} → {title}")
+            log_schedule_change(schedule_id, 'UPDATE', 'title', old_schedule['title'], title, 'admin')
+        if old_schedule['description'] != description:
+            changes.append(f"설명: {old_schedule['description']} → {description}")
+            log_schedule_change(schedule_id, 'UPDATE', 'description', old_schedule['description'], description, 'admin')
+        if old_schedule['start_date'] != start_date:
+            changes.append(f"시작일: {old_schedule['start_date']} → {start_date}")
+            log_schedule_change(schedule_id, 'UPDATE', 'start_date', old_schedule['start_date'], start_date, 'admin')
+        if old_schedule['end_date'] != end_date:
+            changes.append(f"종료일: {old_schedule['end_date']} → {end_date}")
+            log_schedule_change(schedule_id, 'UPDATE', 'end_date', old_schedule['end_date'], end_date, 'admin')
+        if old_schedule['destination'] != destination:
+            changes.append(f"목적지: {old_schedule['destination']} → {destination}")
+            log_schedule_change(schedule_id, 'UPDATE', 'destination', old_schedule['destination'], destination, 'admin')
+        if old_schedule['price'] != price:
+            changes.append(f"가격: {old_schedule['price']} → {price}")
+            log_schedule_change(schedule_id, 'UPDATE', 'price', str(old_schedule['price']), str(price), 'admin')
+        if old_schedule['max_people'] != max_people:
+            changes.append(f"최대인원: {old_schedule['max_people']} → {max_people}")
+            log_schedule_change(schedule_id, 'UPDATE', 'max_people', str(old_schedule['max_people']), str(max_people), 'admin')
+        if old_schedule['status'] != status:
+            changes.append(f"상태: {old_schedule['status']} → {status}")
+            log_schedule_change(schedule_id, 'UPDATE', 'status', old_schedule['status'], status, 'admin')
+        if old_schedule['duration'] != duration:
+            changes.append(f"기간: {old_schedule['duration']} → {duration}")
+            log_schedule_change(schedule_id, 'UPDATE', 'duration', old_schedule['duration'], duration, 'admin')
+        if old_schedule['region'] != region:
+            changes.append(f"지역: {old_schedule['region']} → {region}")
+            log_schedule_change(schedule_id, 'UPDATE', 'region', old_schedule['region'], region, 'admin')
+        if old_schedule['meeting_date'] != meeting_date:
+            changes.append(f"모임일: {old_schedule['meeting_date']} → {meeting_date}")
+            log_schedule_change(schedule_id, 'UPDATE', 'meeting_date', old_schedule['meeting_date'], meeting_date, 'admin')
+        if old_schedule['meeting_time'] != meeting_time:
+            changes.append(f"모임시간: {old_schedule['meeting_time']} → {meeting_time}")
+            log_schedule_change(schedule_id, 'UPDATE', 'meeting_time', old_schedule['meeting_time'], meeting_time, 'admin')
+        if old_schedule['meeting_place'] != meeting_place:
+            changes.append(f"모임장소: {old_schedule['meeting_place']} → {meeting_place}")
+            log_schedule_change(schedule_id, 'UPDATE', 'meeting_place', old_schedule['meeting_place'], meeting_place, 'admin')
+        if old_schedule['manager'] != manager:
+            changes.append(f"담당자: {old_schedule['manager']} → {manager}")
+            log_schedule_change(schedule_id, 'UPDATE', 'manager', old_schedule['manager'], manager, 'admin')
+        if old_schedule['reservation_maker'] != reservation_maker:
+            changes.append(f"예약담당자: {old_schedule['reservation_maker']} → {reservation_maker}")
+            log_schedule_change(schedule_id, 'UPDATE', 'reservation_maker', old_schedule['reservation_maker'], reservation_maker, 'admin')
+        if old_schedule['reservation_maker_contact'] != reservation_maker_contact:
+            changes.append(f"예약담당자연락처: {old_schedule['reservation_maker_contact']} → {reservation_maker_contact}")
+            log_schedule_change(schedule_id, 'UPDATE', 'reservation_maker_contact', old_schedule['reservation_maker_contact'], reservation_maker_contact, 'admin')
+        if old_schedule['important_docs'] != important_docs:
+            changes.append(f"중요문서: {old_schedule['important_docs']} → {important_docs}")
+            log_schedule_change(schedule_id, 'UPDATE', 'important_docs', old_schedule['important_docs'], important_docs, 'admin')
+        if old_schedule['currency_info'] != currency_info:
+            changes.append(f"통화정보: {old_schedule['currency_info']} → {currency_info}")
+            log_schedule_change(schedule_id, 'UPDATE', 'currency_info', old_schedule['currency_info'], currency_info, 'admin')
+        if old_schedule['other_items'] != other_items:
+            changes.append(f"기타항목: {old_schedule['other_items']} → {other_items}")
+            log_schedule_change(schedule_id, 'UPDATE', 'other_items', old_schedule['other_items'], other_items, 'admin')
+        if old_schedule['memo'] != memo:
+            changes.append(f"메모: {old_schedule['memo']} → {memo}")
+            log_schedule_change(schedule_id, 'UPDATE', 'memo', old_schedule['memo'], memo, 'admin')
+        
         cursor.execute("""
             UPDATE schedules
             SET title = ?, description = ?, start_date = ?, end_date = ?, destination = ?,
@@ -256,19 +319,16 @@ def update_schedule(schedule_id):
                 currency_info = ?, other_items = ?, memo = ?, updated_at = ?
             WHERE id = ?
         """, (
-            title, description, start_date, end_date, destination, price, max_people, status,
-            duration, region, meeting_date, meeting_time, meeting_place, manager,
-            reservation_maker, reservation_maker_contact, important_docs, currency_info,
-            other_items, memo, current_time, schedule_id
+            title, description, start_date, end_date, destination, price, max_people,
+            status, duration, region, meeting_date, meeting_time, meeting_place,
+            manager, reservation_maker, reservation_maker_contact, important_docs,
+            currency_info, other_items, memo, current_time, schedule_id
         ))
         conn.commit()
         
         if cursor.rowcount == 0:
             conn.close()
             raise APIError('일정을 찾을 수 없습니다.', 404)
-        
-        # 변경 로그 기록
-        log_schedule_change(schedule_id, 'UPDATE', 'all', None, f'일정 수정: {title}', 'admin')
         
         cursor.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,))
         updated_schedule = cursor.fetchone()
@@ -306,9 +366,6 @@ def delete_schedule(schedule_id):
         if cursor.rowcount == 0:
             conn.close()
             raise APIError('일정을 찾을 수 없습니다.', 404)
-        
-        # 변경 로그 기록
-        log_schedule_change(schedule_id, 'DELETE', 'all', None, f'일정 삭제: {schedule_title}', 'admin')
         
         conn.close()
         return jsonify({'message': '일정이 삭제되었습니다.'})
@@ -437,7 +494,9 @@ def create_schedule_page():
                 currency_info, other_items, memo, current_time, current_time
             ))
             conn.commit()
+            
             conn.close()
+            flash('일정이 성공적으로 추가되었습니다.', 'success')
             return redirect(url_for('schedule.schedules_page'))
         except Exception as e:
             conn.close()
@@ -507,6 +566,69 @@ def edit_schedule_page(schedule_id):
         current_time = datetime.now().isoformat()
         
         try:
+            # 변경된 필드 추적
+            changes = []
+            if schedule['title'] != title:
+                changes.append(f"제목: {schedule['title']} → {title}")
+                log_schedule_change(schedule_id, 'UPDATE', 'title', schedule['title'], title, 'admin')
+            if schedule['description'] != description:
+                changes.append(f"설명: {schedule['description']} → {description}")
+                log_schedule_change(schedule_id, 'UPDATE', 'description', schedule['description'], description, 'admin')
+            if schedule['start_date'] != start_date:
+                changes.append(f"시작일: {schedule['start_date']} → {start_date}")
+                log_schedule_change(schedule_id, 'UPDATE', 'start_date', schedule['start_date'], start_date, 'admin')
+            if schedule['end_date'] != end_date:
+                changes.append(f"종료일: {schedule['end_date']} → {end_date}")
+                log_schedule_change(schedule_id, 'UPDATE', 'end_date', schedule['end_date'], end_date, 'admin')
+            if schedule['destination'] != destination:
+                changes.append(f"목적지: {schedule['destination']} → {destination}")
+                log_schedule_change(schedule_id, 'UPDATE', 'destination', schedule['destination'], destination, 'admin')
+            if schedule['price'] != price:
+                changes.append(f"가격: {schedule['price']} → {price}")
+                log_schedule_change(schedule_id, 'UPDATE', 'price', str(schedule['price']), str(price), 'admin')
+            if schedule['max_people'] != max_people:
+                changes.append(f"최대인원: {schedule['max_people']} → {max_people}")
+                log_schedule_change(schedule_id, 'UPDATE', 'max_people', str(schedule['max_people']), str(max_people), 'admin')
+            if schedule['status'] != status:
+                changes.append(f"상태: {schedule['status']} → {status}")
+                log_schedule_change(schedule_id, 'UPDATE', 'status', schedule['status'], status, 'admin')
+            if schedule['duration'] != duration:
+                changes.append(f"기간: {schedule['duration']} → {duration}")
+                log_schedule_change(schedule_id, 'UPDATE', 'duration', schedule['duration'], duration, 'admin')
+            if schedule['region'] != region:
+                changes.append(f"지역: {schedule['region']} → {region}")
+                log_schedule_change(schedule_id, 'UPDATE', 'region', schedule['region'], region, 'admin')
+            if schedule['meeting_date'] != meeting_date:
+                changes.append(f"모임일: {schedule['meeting_date']} → {meeting_date}")
+                log_schedule_change(schedule_id, 'UPDATE', 'meeting_date', schedule['meeting_date'], meeting_date, 'admin')
+            if schedule['meeting_time'] != meeting_time:
+                changes.append(f"모임시간: {schedule['meeting_time']} → {meeting_time}")
+                log_schedule_change(schedule_id, 'UPDATE', 'meeting_time', schedule['meeting_time'], meeting_time, 'admin')
+            if schedule['meeting_place'] != meeting_place:
+                changes.append(f"모임장소: {schedule['meeting_place']} → {meeting_place}")
+                log_schedule_change(schedule_id, 'UPDATE', 'meeting_place', schedule['meeting_place'], meeting_place, 'admin')
+            if schedule['manager'] != manager:
+                changes.append(f"담당자: {schedule['manager']} → {manager}")
+                log_schedule_change(schedule_id, 'UPDATE', 'manager', schedule['manager'], manager, 'admin')
+            if schedule['reservation_maker'] != reservation_maker:
+                changes.append(f"예약담당자: {schedule['reservation_maker']} → {reservation_maker}")
+                log_schedule_change(schedule_id, 'UPDATE', 'reservation_maker', schedule['reservation_maker'], reservation_maker, 'admin')
+            if schedule['reservation_maker_contact'] != reservation_maker_contact:
+                changes.append(f"예약담당자연락처: {schedule['reservation_maker_contact']} → {reservation_maker_contact}")
+                log_schedule_change(schedule_id, 'UPDATE', 'reservation_maker_contact', schedule['reservation_maker_contact'], reservation_maker_contact, 'admin')
+            if schedule['important_docs'] != important_docs:
+                changes.append(f"중요문서: {schedule['important_docs']} → {important_docs}")
+                log_schedule_change(schedule_id, 'UPDATE', 'important_docs', schedule['important_docs'], important_docs, 'admin')
+            if schedule['currency_info'] != currency_info:
+                changes.append(f"통화정보: {schedule['currency_info']} → {currency_info}")
+                log_schedule_change(schedule_id, 'UPDATE', 'currency_info', schedule['currency_info'], currency_info, 'admin')
+            if schedule['other_items'] != other_items:
+                changes.append(f"기타항목: {schedule['other_items']} → {other_items}")
+                log_schedule_change(schedule_id, 'UPDATE', 'other_items', schedule['other_items'], other_items, 'admin')
+            if schedule['memo'] != memo:
+                changes.append(f"메모: {schedule['memo']} → {memo}")
+                log_schedule_change(schedule_id, 'UPDATE', 'memo', schedule['memo'], memo, 'admin')
+            
             cursor.execute("""
                 UPDATE schedules
                 SET title = ?, description = ?, start_date = ?, end_date = ?, destination = ?,
@@ -523,10 +645,8 @@ def edit_schedule_page(schedule_id):
             ))
             conn.commit()
             
-            # 변경 로그 기록
-            log_schedule_change(schedule_id, 'UPDATE', 'all', None, f'일정 수정: {title}', 'admin')
-            
             conn.close()
+            flash('일정이 성공적으로 수정되었습니다.', 'success')
             return redirect(url_for('schedule.schedules_page'))
         except Exception as e:
             conn.close()
