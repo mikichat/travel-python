@@ -26,16 +26,58 @@ def format_currency_filter(amount):
 @jwt_required(current_app)
 def schedules_page():
     try:
+        # 검색 및 필터링 파라미터 가져오기
+        search = request.args.get('search', '').strip()
+        sort_by = request.args.get('sort_by', 'created_at')
+        order = request.args.get('order', 'desc')
+        
         conn = get_db_connection()
         cursor = conn.cursor()
-        # 일정과 예약된 슬롯 수를 조인하여 조회
-        cursor.execute("""
+        
+        # 기본 쿼리 - 일정과 예약된 슬롯 수를 조인하여 조회
+        query = """
             SELECT s.*, COALESCE(SUM(r.number_of_people), 0) as booked_slots
             FROM schedules s
             LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled'
-            GROUP BY s.id
-            ORDER BY s.created_at DESC
-        """)
+        """
+        
+        # WHERE 조건 구성
+        conditions = []
+        params = []
+        
+        if search:
+            conditions.append("(s.title LIKE ? OR s.destination LIKE ? OR s.description LIKE ? OR s.region LIKE ?)")
+            search_pattern = f"%{search}%"
+            params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+        
+        # WHERE 절 추가
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        # GROUP BY 추가
+        query += " GROUP BY s.id"
+        
+        # 정렬
+        valid_sort_fields = ['destination', 'start_date', 'max_people', 'created_at', 'title', 'price']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'created_at'
+        
+        # 정렬 필드 매핑
+        sort_field_mapping = {
+            'destination': 's.destination',
+            'date': 's.start_date',
+            'capacity': 's.max_people',
+            'created_at': 's.created_at',
+            'title': 's.title',
+            'price': 's.price'
+        }
+        
+        sort_field = sort_field_mapping.get(sort_by, 's.created_at')
+        sort_direction = 'DESC' if order == 'desc' else 'ASC'
+        query += f" ORDER BY {sort_field} {sort_direction}"
+        
+        # 쿼리 실행
+        cursor.execute(query, params)
         schedules = cursor.fetchall()
         conn.close()
         

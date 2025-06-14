@@ -1,121 +1,209 @@
 {% extends "base.html" %}
 
-{% block title %}Schedules{% endblock %}
+{% block title %}일정 관리 - Travel CRM{% endblock %}
 
 {% block content %}
-<div class="container mx-auto p-4">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">일정 관리</h1>
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">일정 관리</h1>
+            <p class="mt-1 text-sm text-gray-600">여행 일정을 관리합니다</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('schedule.create_schedule_page') }}" 
+               class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <i class="fas fa-plus mr-2"></i>
+                새 일정 생성
+            </a>
+        </div>
+    </div>
 
-    <!-- 검색 및 필터링 폼 -->
-    <div class="bg-white shadow-md rounded-lg p-6 mb-6">
-        <form action="{{ url_for('schedule.schedules_page') }}" method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-                <label for="search" class="block text-sm font-medium text-gray-700">검색</label>
-                <input type="text" name="search" id="search" value="{{ request.args.get('search', '') }}"
-                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+    {% if error %}
+        <div class="bg-red-50 border border-red-200 rounded-md p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-red-400"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">오류가 발생했습니다</h3>
+                    <div class="mt-2 text-sm text-red-700">{{ error }}</div>
+                </div>
             </div>
-            <div>
-                <label for="sort_by" class="block text-sm font-medium text-gray-700">정렬 기준</label>
-                <select name="sort_by" id="sort_by"
-                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="destination" {% if request.args.get('sort_by') == 'destination' %}selected{% endif %}>목적지</option>
-                    <option value="date" {% if request.args.get('sort_by') == 'date' %}selected{% endif %}>날짜</option>
-                    <option value="capacity" {% if request.args.get('sort_by') == 'capacity' %}selected{% endif %}>정원</option>
-                </select>
+        </div>
+    {% endif %}
+
+    <!-- 검색 폼 -->
+    <div class="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
+        <form method="GET" action="{{ url_for('schedule.schedules_page') }}" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- 검색어 -->
+                <div>
+                    <label for="search" class="block text-sm font-medium text-gray-700 mb-1">검색</label>
+                    <input type="text" 
+                           id="search" 
+                           name="search" 
+                           value="{{ request.args.get('search', '') }}"
+                           placeholder="제목, 목적지, 설명, 지역을 검색하세요"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <!-- 정렬 기준 -->
+                <div>
+                    <label for="sort_by" class="block text-sm font-medium text-gray-700 mb-1">정렬 기준</label>
+                    <select id="sort_by" 
+                            name="sort_by" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="created_at" {{ 'selected' if request.args.get('sort_by') == 'created_at' else '' }}>등록일</option>
+                        <option value="title" {{ 'selected' if request.args.get('sort_by') == 'title' else '' }}>제목</option>
+                        <option value="destination" {{ 'selected' if request.args.get('sort_by') == 'destination' else '' }}>목적지</option>
+                        <option value="date" {{ 'selected' if request.args.get('sort_by') == 'date' else '' }}>출발일</option>
+                        <option value="capacity" {{ 'selected' if request.args.get('sort_by') == 'capacity' else '' }}>정원</option>
+                        <option value="price" {{ 'selected' if request.args.get('sort_by') == 'price' else '' }}>가격</option>
+                    </select>
+                </div>
+
+                <!-- 정렬 순서 -->
+                <div>
+                    <label for="order" class="block text-sm font-medium text-gray-700 mb-1">정렬 순서</label>
+                    <select id="order" 
+                            name="order" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="desc" {{ 'selected' if request.args.get('order') == 'desc' else '' }}>내림차순</option>
+                        <option value="asc" {{ 'selected' if request.args.get('order') == 'asc' else '' }}>오름차순</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label for="order" class="block text-sm font-medium text-gray-700">정렬 순서</label>
-                <select name="order" id="order"
-                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="asc" {% if request.args.get('order') == 'asc' %}selected{% endif %}>오름차순</option>
-                    <option value="desc" {% if request.args.get('order') == 'desc' %}selected{% endif %}>내림차순</option>
-                </select>
-            </div>
-            <div class="md:col-span-3 flex justify-end space-x-3">
-                <button type="submit"
-                        class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    적용
-                </button>
-                <a href="{{ url_for('schedule.schedules_page') }}"
-                   class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    초기화
-                </a>
+
+            <!-- 검색 버튼 -->
+            <div class="flex items-center justify-between">
+                <div class="flex space-x-3">
+                    <button type="submit" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-search mr-2"></i>
+                        검색
+                    </button>
+                    <a href="{{ url_for('schedule.schedules_page') }}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-undo mr-2"></i>
+                        초기화
+                    </a>
+                </div>
+                
+                <!-- 검색 결과 개수 -->
+                {% if schedules %}
+                <div class="text-sm text-gray-600">
+                    총 <span class="font-medium">{{ schedules|length }}</span>개의 일정이 검색되었습니다.
+                </div>
+                {% endif %}
             </div>
         </form>
     </div>
 
-    <!-- 버튼 그룹 -->
-    <div class="flex justify-between items-center mb-6">
-        <a href="{{ url_for('schedule.create_schedule_page') }}"
-           class="px-5 py-2 bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-            <i class="fas fa-plus mr-2"></i>새 일정 추가
-        </a>
-        <a href="{{ url_for('schedule.export_schedules_csv') }}"
-           class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            <i class="fas fa-file-csv mr-2"></i>CSV 내보내기
-        </a>
-    </div>
+    <!-- 검색 결과 정보 -->
+    {% if request.args.get('search') %}
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-blue-800">
+                    검색어: "<span class="font-medium">{{ request.args.get('search') }}</span>"에 대한 검색 결과입니다.
+                </div>
+                <a href="{{ url_for('schedule.schedules_page') }}" 
+                   class="text-sm text-blue-600 hover:text-blue-800 underline">
+                    검색 조건 초기화
+                </a>
+            </div>
+        </div>
+    {% endif %}
 
     <!-- 일정 목록 테이블 -->
-    <div class="bg-white shadow-md rounded-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-            <tr>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">목적지</th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">날짜</th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">시간</th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">정원</th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">예약됨</th>
-                <th scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">남은 좌석</th>
-                <th scope="col" class="relative px-6 py-3">
-                    <span class="sr-only">작업</span>
-                </th>
-            </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-            {% for schedule in schedules %}
-            <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ schedule.id }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ schedule.destination }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ schedule.date }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ schedule.time }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ schedule.capacity }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ schedule.booked_slots }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ schedule.capacity - schedule.booked_slots }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="{{ url_for('schedule.edit_schedule_page', schedule_id=schedule.id) }}"
-                       class="text-indigo-600 hover:text-indigo-900 mr-4">수정</a>
-                    <form action="{{ url_for('schedule.delete_schedule_page', schedule_id=schedule.id) }}" method="POST"
-                          class="inline" onsubmit="return confirm('정말로 이 일정을 삭제하시겠습니까?');">
-                        <button type="submit" class="text-red-600 hover:text-red-900">삭제</button>
-                    </form>
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                    일정이 없습니다.
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- 페이지네이션 -->
-    <div class="mt-6 flex justify-between items-center">
-        <div class="text-sm text-gray-700">
-            총 {{ total_schedules }}개의 일정 중 1 - {{ schedules|length }} 표시
-        </div>
-        <!-- 페이지네이션은 현재 단순화하여 제거 -->
+    <div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+        {% if schedules %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">제목</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">목적지</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">출발일</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">도착일</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">정원</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">예약됨</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">남은 좌석</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">가격</th>
+                            <th scope="col" class="relative px-6 py-3">
+                                <span class="sr-only">작업</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for schedule in schedules %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ schedule.id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ schedule.title }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ schedule.destination }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ schedule.start_date | format_date if schedule.start_date else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ schedule.end_date | format_date if schedule.end_date else '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ schedule.capacity }}명</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ schedule.booked_slots }}명</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <span class="{% if schedule.capacity - schedule.booked_slots <= 0 %}text-red-600 font-medium{% elif schedule.capacity - schedule.booked_slots <= 3 %}text-yellow-600 font-medium{% else %}text-green-600{% endif %}">
+                                    {{ schedule.capacity - schedule.booked_slots }}명
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ schedule.price | format_currency }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex items-center space-x-2">
+                                    <a href="{{ url_for('schedule.edit_schedule_page', schedule_id=schedule.id) }}" 
+                                       class="text-blue-600 hover:text-blue-900" title="수정">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ url_for('schedule.delete_schedule_page', schedule_id=schedule.id) }}" 
+                                          method="POST" class="inline" 
+                                          onsubmit="return confirm('이 일정을 정말로 삭제하시겠습니까?');">
+                                        <button type="submit" class="text-red-600 hover:text-red-900" title="삭제">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-calendar-times text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">
+                    {% if request.args.get('search') %}
+                        검색 결과가 없습니다
+                    {% else %}
+                        일정이 없습니다
+                    {% endif %}
+                </h3>
+                <p class="text-gray-600 mb-4">
+                    {% if request.args.get('search') %}
+                        검색 조건을 변경해보세요.
+                    {% else %}
+                        아직 등록된 일정이 없습니다.
+                    {% endif %}
+                </p>
+                {% if not request.args.get('search') %}
+                <a href="{{ url_for('schedule.create_schedule_page') }}" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                    <i class="fas fa-plus mr-2"></i>
+                    첫 일정 생성하기
+                </a>
+                {% endif %}
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %} 
