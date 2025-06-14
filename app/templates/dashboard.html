@@ -11,7 +11,7 @@
             <p class="mt-1 text-sm text-gray-600">Travel CRM 시스템 개요</p>
         </div>
         <div class="flex items-center space-x-3">
-            <span class="text-sm text-gray-500">{{ moment().format('YYYY년 MM월 DD일') }}</span>
+            <span class="text-sm text-gray-500" id="current-date"></span>
         </div>
     </div>
 
@@ -32,7 +32,7 @@
             </div>
             <div class="mt-4">
                 <span class="text-sm text-green-600">
-                    <i class="fas fa-arrow-up"></i> 12%
+                    <i class="fas fa-arrow-up"></i> {{ stats.customer_growth }}%
                 </span>
                 <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
             </div>
@@ -53,7 +53,7 @@
             </div>
             <div class="mt-4">
                 <span class="text-sm text-green-600">
-                    <i class="fas fa-arrow-up"></i> 8%
+                    <i class="fas fa-arrow-up"></i> {{ stats.schedule_growth }}%
                 </span>
                 <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
             </div>
@@ -74,7 +74,7 @@
             </div>
             <div class="mt-4">
                 <span class="text-sm text-green-600">
-                    <i class="fas fa-arrow-up"></i> 15%
+                    <i class="fas fa-arrow-up"></i> {{ stats.reservation_growth }}%
                 </span>
                 <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
             </div>
@@ -90,12 +90,12 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm font-medium text-gray-600">이번 달 수익</p>
-                    <p class="text-2xl font-semibold text-gray-900">₩0</p>
+                    <p class="text-2xl font-semibold text-gray-900">₩{{ "{:,}".format(stats.monthly_revenue) }}</p>
                 </div>
             </div>
             <div class="mt-4">
                 <span class="text-sm text-green-600">
-                    <i class="fas fa-arrow-up"></i> 23%
+                    <i class="fas fa-arrow-up"></i> {{ stats.revenue_growth }}%
                 </span>
                 <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
             </div>
@@ -172,32 +172,45 @@
         </div>
         <div class="p-6">
             <div class="space-y-4">
+                {% for notification in stats.notifications %}
                 <div class="flex items-start space-x-3">
                     <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <i class="fas fa-info-circle text-blue-600"></i>
+                        <div class="w-8 h-8 {{ notification.icon_bg }} rounded-full flex items-center justify-center">
+                            <i class="{{ notification.icon }} {{ notification.icon_color }}"></i>
                         </div>
                     </div>
                     <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-900">시스템 업데이트</p>
-                        <p class="text-sm text-gray-500">Travel CRM v2.0이 성공적으로 업데이트되었습니다.</p>
-                        <p class="text-xs text-gray-400 mt-1">2시간 전</p>
+                        <p class="text-sm font-medium text-gray-900">{{ notification.title }}</p>
+                        <p class="text-sm text-gray-500">{{ notification.message }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ notification.time }}</p>
                     </div>
                 </div>
-                <div class="flex items-start space-x-3">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                            <i class="fas fa-check-circle text-green-600"></i>
-                        </div>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-900">데이터베이스 백업</p>
-                        <p class="text-sm text-gray-500">일일 데이터베이스 백업이 완료되었습니다.</p>
-                        <p class="text-xs text-gray-400 mt-1">1일 전</p>
-                    </div>
-                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// 현재 날짜 표시
+function updateCurrentDate() {
+    const now = new Date();
+    const options = { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        weekday: 'long'
+    };
+    const dateStr = now.toLocaleDateString('ko-KR', options);
+    document.getElementById('current-date').textContent = dateStr;
+}
+
+// 페이지 로드 시 날짜 업데이트
+document.addEventListener('DOMContentLoaded', function() {
+    updateCurrentDate();
+    
+    // 1분마다 날짜 업데이트 (자정 변경 시)
+    setInterval(updateCurrentDate, 60000);
+});
+</script>
 {% endblock %} 

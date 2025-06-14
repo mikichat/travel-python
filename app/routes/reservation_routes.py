@@ -5,8 +5,30 @@ import io
 from database import get_db_connection
 from app.utils.errors import APIError
 from app.utils.auth import jwt_required
+from app.utils.filters import format_date, format_datetime, format_currency, get_status_color, get_status_text
 
 reservation_bp = Blueprint('reservation', __name__)
+
+# 필터 등록
+@reservation_bp.app_template_filter('format_date')
+def format_date_filter(date_str):
+    return format_date(date_str)
+
+@reservation_bp.app_template_filter('format_datetime')
+def format_datetime_filter(datetime_str):
+    return format_datetime(datetime_str)
+
+@reservation_bp.app_template_filter('format_currency')
+def format_currency_filter(amount):
+    return format_currency(amount)
+
+@reservation_bp.app_template_filter('get_status_color')
+def get_status_color_filter(status):
+    return get_status_color(status)
+
+@reservation_bp.app_template_filter('get_status_text')
+def get_status_text_filter(status):
+    return get_status_text(status)
 
 @reservation_bp.route('/')
 @jwt_required(current_app)

@@ -5,8 +5,18 @@ import io
 from database import get_db_connection
 from app.utils.errors import APIError
 from app.utils.auth import jwt_required
+from app.utils.filters import format_date, format_datetime
 
 customer_bp = Blueprint('customer', __name__)
+
+# 필터 등록
+@customer_bp.app_template_filter('format_date')
+def format_date_filter(date_str):
+    return format_date(date_str)
+
+@customer_bp.app_template_filter('format_datetime')
+def format_datetime_filter(datetime_str):
+    return format_datetime(datetime_str)
 
 @customer_bp.route('/')
 @jwt_required(current_app)
