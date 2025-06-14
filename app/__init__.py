@@ -39,8 +39,10 @@ def create_app():
     
     # 블루프린트 등록
     from app.routes import auth_routes, customer_routes, schedule_routes, reservation_routes
+    from app.routes import dashboard_bp
     
     app.register_blueprint(auth_routes.auth_bp)
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(customer_routes.customer_bp, url_prefix='/customers')
     app.register_blueprint(schedule_routes.schedule_bp, url_prefix='/schedules')
     app.register_blueprint(reservation_routes.reservation_bp, url_prefix='/reservations')

@@ -1,45 +1,201 @@
 {% extends "base.html" %}
 
-{% block title %}대시보드{% endblock %}
+{% block title %}대시보드 - Travel CRM{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-100 p-8">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">환영합니다, {{ session.username }}!</h1>
-            <a href="/logout" class="py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                로그아웃
-            </a>
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">대시보드</h1>
+            <p class="mt-1 text-sm text-gray-600">Travel CRM 시스템 개요</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <span class="text-sm text-gray-500">{{ moment().format('YYYY년 MM월 DD일') }}</span>
+        </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- 고객 수 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">총 고객 수</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ stats.total_customers }}</p>
+                </div>
+            </div>
+            <div class="mt-4">
+                <span class="text-sm text-green-600">
+                    <i class="fas fa-arrow-up"></i> 12%
+                </span>
+                <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
+            </div>
         </div>
 
-        <p class="text-lg text-gray-600 mb-8">Travel CRM 대시보드에 오신 것을 환영합니다. 아래에서 각 섹션을 관리할 수 있습니다.</p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- 고객 관리 카드 -->
-            <div class="bg-blue-100 border border-blue-200 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300">
-                <h2 class="text-xl font-semibold text-blue-800 mb-4">고객 관리</h2>
-                <p class="text-blue-700 mb-4">모든 고객 정보를 확인하고 관리합니다.</p>
-                <a href="/customers" class="inline-block py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                    고객 목록 보기
-                </a>
+        <!-- 일정 수 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-calendar-alt text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">총 일정 수</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ stats.total_schedules }}</p>
+                </div>
             </div>
-
-            <!-- 일정 관리 카드 -->
-            <div class="bg-green-100 border border-green-200 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300">
-                <h2 class="text-xl font-semibold text-green-800 mb-4">일정 관리</h2>
-                <p class="text-green-700 mb-4">여행 일정 및 세부 정보를 관리합니다.</p>
-                <a href="/schedules" class="inline-block py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                    일정 목록 보기
-                </a>
+            <div class="mt-4">
+                <span class="text-sm text-green-600">
+                    <i class="fas fa-arrow-up"></i> 8%
+                </span>
+                <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
             </div>
+        </div>
 
-            <!-- 예약 관리 카드 -->
-            <div class="bg-purple-100 border border-purple-200 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow duration-300">
-                <h2 class="text-xl font-semibold text-purple-800 mb-4">예약 관리</h2>
-                <p class="text-purple-700 mb-4">모든 여행 예약 내역을 확인하고 관리합니다.</p>
-                <a href="/reservations" class="inline-block py-2 px-4 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
-                    예약 목록 보기
-                </a>
+        <!-- 예약 수 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-ticket-alt text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">총 예약 수</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ stats.total_reservations }}</p>
+                </div>
+            </div>
+            <div class="mt-4">
+                <span class="text-sm text-green-600">
+                    <i class="fas fa-arrow-up"></i> 15%
+                </span>
+                <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
+            </div>
+        </div>
+
+        <!-- 수익 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-dollar-sign text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">이번 달 수익</p>
+                    <p class="text-2xl font-semibold text-gray-900">₩0</p>
+                </div>
+            </div>
+            <div class="mt-4">
+                <span class="text-sm text-green-600">
+                    <i class="fas fa-arrow-up"></i> 23%
+                </span>
+                <span class="text-sm text-gray-500 ml-2">지난 달 대비</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 차트 및 테이블 섹션 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 최근 예약 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">최근 예약</h3>
+            </div>
+            <div class="p-6">
+                {% if stats.recent_reservations %}
+                    <div class="space-y-4">
+                        {% for reservation in stats.recent_reservations %}
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">{{ reservation.customer_name }}</p>
+                                <p class="text-sm text-gray-500">{{ reservation.schedule_title }}</p>
+                            </div>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ reservation.status | get_status_color }}">
+                                {{ reservation.status | get_status_text }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8">
+                        <i class="fas fa-ticket-alt text-gray-400 text-4xl mb-4"></i>
+                        <p class="text-gray-500">최근 예약이 없습니다.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 빠른 액션 -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">빠른 액션</h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <a href="{{ url_for('customer.create_customer_page') }}" 
+                       class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-user-plus text-blue-600 text-2xl mb-2"></i>
+                        <span class="text-sm font-medium text-gray-900">새 고객</span>
+                    </a>
+                    <a href="{{ url_for('schedule.create_schedule_page') }}" 
+                       class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-calendar-plus text-green-600 text-2xl mb-2"></i>
+                        <span class="text-sm font-medium text-gray-900">새 일정</span>
+                    </a>
+                    <a href="{{ url_for('reservation.create_reservation_page') }}" 
+                       class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-ticket-alt text-purple-600 text-2xl mb-2"></i>
+                        <span class="text-sm font-medium text-gray-900">새 예약</span>
+                    </a>
+                    <a href="#" 
+                       class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-file-export text-orange-600 text-2xl mb-2"></i>
+                        <span class="text-sm font-medium text-gray-900">보고서</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 섹션 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">시스템 알림</h3>
+        </div>
+        <div class="p-6">
+            <div class="space-y-4">
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-info-circle text-blue-600"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">시스템 업데이트</p>
+                        <p class="text-sm text-gray-500">Travel CRM v2.0이 성공적으로 업데이트되었습니다.</p>
+                        <p class="text-xs text-gray-400 mt-1">2시간 전</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-check-circle text-green-600"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">데이터베이스 백업</p>
+                        <p class="text-sm text-gray-500">일일 데이터베이스 백업이 완료되었습니다.</p>
+                        <p class="text-xs text-gray-400 mt-1">1일 전</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

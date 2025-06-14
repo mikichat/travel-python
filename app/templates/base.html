@@ -6,8 +6,198 @@
     <title>{% block title %}Travel CRM{% endblock %}</title>
     <!-- Tailwind CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        .sidebar-transition {
+            transition: all 0.3s ease;
+        }
+        .content-transition {
+            transition: margin-left 0.3s ease;
+        }
+        .sidebar-open {
+            margin-left: 0;
+        }
+        .sidebar-closed {
+            margin-left: -250px;
+        }
+        @media (min-width: 768px) {
+            .sidebar-open {
+                margin-left: 0;
+            }
+            .sidebar-closed {
+                margin-left: 0;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gray-100 font-sans leading-normal tracking-normal">
-    {% block content %}{% endblock %}
+<body class="bg-gray-50 font-sans">
+    <!-- 헤더 -->
+    <header class="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
+        <div class="flex items-center justify-between px-4 py-3">
+            <!-- 좌측: 로고 및 메뉴 토글 -->
+            <div class="flex items-center space-x-4">
+                <button id="sidebar-toggle" class="text-gray-600 hover:text-gray-900 focus:outline-none focus:text-gray-900 md:hidden">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-plane text-blue-600 text-2xl"></i>
+                    <span class="text-xl font-bold text-gray-800">Travel CRM</span>
+                </div>
+            </div>
+
+            <!-- 우측: 사용자 메뉴 -->
+            <div class="flex items-center space-x-4">
+                <!-- 알림 -->
+                <button class="text-gray-600 hover:text-gray-900 focus:outline-none relative">
+                    <i class="fas fa-bell text-lg"></i>
+                    <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                </button>
+                
+                <!-- 사용자 프로필 -->
+                <div class="relative">
+                    <button id="user-menu-toggle" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none">
+                        <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-white text-sm"></i>
+                        </div>
+                        <span class="hidden md:block text-sm font-medium">관리자</span>
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </button>
+                    
+                    <!-- 드롭다운 메뉴 -->
+                    <div id="user-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-user mr-2"></i>프로필
+                        </a>
+                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fas fa-cog mr-2"></i>설정
+                        </a>
+                        <hr class="my-1">
+                        <a href="{{ url_for('auth.logout') }}" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                            <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 좌측 사이드바 -->
+    <aside id="sidebar" class="sidebar-transition fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-40 md:translate-x-0 transform -translate-x-full">
+        <div class="flex flex-col h-full">
+            <!-- 사이드바 헤더 -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-800">메뉴</h2>
+                <button id="sidebar-close" class="text-gray-600 hover:text-gray-900 focus:outline-none md:hidden">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- 네비게이션 메뉴 -->
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="{{ url_for('dashboard.dashboard') }}" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors {% if request.endpoint == 'dashboard.dashboard' %}bg-blue-100 text-blue-700{% endif %}">
+                    <i class="fas fa-tachometer-alt mr-3"></i>
+                    <span>대시보드</span>
+                </a>
+
+                <a href="{{ url_for('customer.customers_page') }}" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors {% if 'customer.' in request.endpoint %}bg-blue-100 text-blue-700{% endif %}">
+                    <i class="fas fa-users mr-3"></i>
+                    <span>고객 관리</span>
+                </a>
+
+                <a href="{{ url_for('schedule.schedules_page') }}" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors {% if 'schedule.' in request.endpoint %}bg-blue-100 text-blue-700{% endif %}">
+                    <i class="fas fa-calendar-alt mr-3"></i>
+                    <span>일정 관리</span>
+                </a>
+
+                <a href="{{ url_for('reservation.reservations_page') }}" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors {% if 'reservation.' in request.endpoint %}bg-blue-100 text-blue-700{% endif %}">
+                    <i class="fas fa-ticket-alt mr-3"></i>
+                    <span>예약 관리</span>
+                </a>
+
+                <!-- 구분선 -->
+                <hr class="my-4 border-gray-200">
+
+                <!-- 추가 메뉴 -->
+                <a href="#" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                    <i class="fas fa-chart-bar mr-3"></i>
+                    <span>통계</span>
+                </a>
+
+                <a href="#" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                    <i class="fas fa-file-alt mr-3"></i>
+                    <span>보고서</span>
+                </a>
+
+                <a href="#" class="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                    <i class="fas fa-cog mr-3"></i>
+                    <span>설정</span>
+                </a>
+            </nav>
+
+            <!-- 사이드바 푸터 -->
+            <div class="p-4 border-t border-gray-200">
+                <div class="text-xs text-gray-500 text-center">
+                    <p>Travel CRM v2.0</p>
+                    <p class="mt-1">© 2024 All rights reserved</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="content-transition md:ml-64 pt-16 min-h-screen">
+        <div class="p-6">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- JavaScript -->
+    <script>
+        // 사이드바 토글
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const sidebarClose = document.getElementById('sidebar-close');
+        const main = document.querySelector('main');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+        }
+
+        sidebarToggle.addEventListener('click', toggleSidebar);
+        sidebarClose.addEventListener('click', closeSidebar);
+
+        // 사용자 메뉴 토글
+        const userMenuToggle = document.getElementById('user-menu-toggle');
+        const userMenu = document.getElementById('user-menu');
+
+        userMenuToggle.addEventListener('click', function() {
+            userMenu.classList.toggle('hidden');
+        });
+
+        // 외부 클릭 시 메뉴 닫기
+        document.addEventListener('click', function(event) {
+            if (!userMenuToggle.contains(event.target) && !userMenu.contains(event.target)) {
+                userMenu.classList.add('hidden');
+            }
+        });
+
+        // 반응형 처리
+        function handleResize() {
+            if (window.innerWidth >= 768) {
+                sidebar.classList.remove('-translate-x-full');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+            }
+        }
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // 초기 로드 시 실행
+    </script>
 </body>
 </html> 
