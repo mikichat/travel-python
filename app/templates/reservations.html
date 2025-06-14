@@ -45,10 +45,10 @@
             <button id="reset-filter-button" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400">초기화</button>
         </div>
         <div class="flex space-x-2">
-            <a href="{{ url_for('create_reservation_page') }}" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">
+            <a href="{{ url_for('reservation.create_reservation_page') }}" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">
                 새 예약 추가
             </a>
-            <a href="{{ url_for('export_reservations_csv', **request.args) }}" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <a href="{{ url_for('reservation.export_reservations_csv', **request.args) }}" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
                 CSV 내보내기
             </a>
         </div>

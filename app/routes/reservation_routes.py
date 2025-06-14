@@ -1,0 +1,271 @@
+from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for
+from datetime import datetime
+import csv
+import io
+from database import get_db_connection
+from app.utils.errors import APIError
+from app.utils.auth import jwt_required
+
+reservation_bp = Blueprint('reservation', __name__)
+
+@reservation_bp.route('/')
+@jwt_required(current_app)
+def reservations_page():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM reservations ORDER BY created_at DESC')
+        reservations = cursor.fetchall()
+        conn.close()
+        return render_template('reservations.html', reservations=reservations)
+    except Exception as e:
+        print(f'예약 목록 조회 오류: {e}')
+        return render_template('reservations.html', error='예약 목록을 불러오는 중 오류가 발생했습니다.')
+
+@reservation_bp.route('/api/reservations', methods=['GET'])
+@jwt_required(current_app)
+def get_reservations():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM reservations ORDER BY created_at DESC')
+        reservations = cursor.fetchall()
+        conn.close()
+        reservations_list = []
+        for res in reservations:
+            res_data = dict(res)
+            res_data['createdAt'] = res_data.pop('created_at')
+            res_data['updatedAt'] = res_data.pop('updated_at')
+            reservations_list.append(res_data)
+        return jsonify(reservations_list)
+    except Exception as e:
+        print(f'예약 조회 실패: {e}')
+        raise APIError('예약 조회 중 오류가 발생했습니다.', 500)
+
+@reservation_bp.route('/api/reservations', methods=['POST'])
+@jwt_required(current_app)
+def create_reservation():
+    try:
+        data = request.get_json()
+        customer_id = data.get('customerId')
+        schedule_id = data.get('scheduleId')
+        status = data.get('status', 'Confirmed')
+        booking_date = data.get('bookingDate', datetime.now().isoformat())
+        number_of_people = data.get('numberOfPeople', 1)
+        total_price = data.get('totalPrice', 0)
+        notes = data.get('notes', '')
+
+        if not customer_id or not schedule_id:
+            raise APIError('고객과 일정 정보는 필수입니다.', 400)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        current_time = datetime.now().isoformat()
+
+        cursor.execute("""
+            INSERT INTO reservations (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, current_time))
+        conn.commit()
+
+        new_reservation_id = cursor.lastrowid
+        cursor.execute('SELECT * FROM reservations WHERE id = ?', (new_reservation_id,))
+        new_reservation = cursor.fetchone()
+        conn.close()
+
+        if not new_reservation:
+            raise APIError('예약 등록 후 정보를 찾을 수 없습니다.', 500)
+
+        new_reservation_data = dict(new_reservation)
+        new_reservation_data['createdAt'] = new_reservation_data.pop('created_at')
+        new_reservation_data['updatedAt'] = new_reservation_data.pop('updated_at')
+        return jsonify(new_reservation_data), 201
+    except APIError:
+        raise
+    except Exception as e:
+        print(f'예약 등록 오류: {e}')
+        raise APIError('예약 등록 중 오류가 발생했습니다.', 500)
+
+@reservation_bp.route('/api/reservations/<int:reservation_id>', methods=['GET'])
+@jwt_required(current_app)
+def get_reservation_by_id(reservation_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
+        reservation = cursor.fetchone()
+        conn.close()
+        if not reservation:
+            raise APIError('예약을 찾을 수 없습니다.', 404)
+        reservation_data = dict(reservation)
+        reservation_data['createdAt'] = reservation_data.pop('created_at')
+        reservation_data['updatedAt'] = reservation_data.pop('updated_at')
+        return jsonify(reservation_data)
+    except APIError:
+        raise
+    except Exception as e:
+        print(f'예약 조회 실패: {e}')
+        raise APIError('예약 조회 중 오류가 발생했습니다.', 500)
+
+@reservation_bp.route('/api/reservations/<int:reservation_id>', methods=['PUT'])
+@jwt_required(current_app)
+def update_reservation(reservation_id):
+    try:
+        data = request.get_json()
+        status = data.get('status', 'Confirmed')
+        booking_date = data.get('bookingDate')
+        number_of_people = data.get('numberOfPeople', 1)
+        total_price = data.get('totalPrice', 0)
+        notes = data.get('notes', '')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        current_time = datetime.now().isoformat()
+
+        cursor.execute("""
+            UPDATE reservations
+            SET status = ?, booking_date = ?, number_of_people = ?, total_price = ?, notes = ?, updated_at = ?
+            WHERE id = ?
+        """, (status, booking_date, number_of_people, total_price, notes, current_time, reservation_id))
+        conn.commit()
+        if cursor.rowcount == 0:
+            conn.close()
+            raise APIError('예약을 찾을 수 없습니다.', 404)
+        cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
+        updated_reservation = cursor.fetchone()
+        conn.close()
+        updated_reservation_data = dict(updated_reservation)
+        updated_reservation_data['createdAt'] = updated_reservation_data.pop('created_at')
+        updated_reservation_data['updatedAt'] = updated_reservation_data.pop('updated_at')
+        return jsonify(updated_reservation_data)
+    except APIError:
+        raise
+    except Exception as e:
+        print(f'예약 수정 오류: {e}')
+        raise APIError('예약 수정 중 오류가 발생했습니다.', 500)
+
+@reservation_bp.route('/api/reservations/<int:reservation_id>', methods=['DELETE'])
+@jwt_required(current_app)
+def delete_reservation(reservation_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
+        conn.commit()
+        if cursor.rowcount == 0:
+            conn.close()
+            raise APIError('예약을 찾을 수 없습니다.', 404)
+        conn.close()
+        return jsonify({'message': '예약이 삭제되었습니다.'})
+    except APIError:
+        raise
+    except Exception as e:
+        print(f'예약 삭제 오류: {e}')
+        raise APIError('예약 삭제 중 오류가 발생했습니다.', 500)
+
+@reservation_bp.route('/delete/<int:reservation_id>', methods=['POST'])
+@jwt_required(current_app)
+def delete_reservation_page(reservation_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('reservation.reservations_page'))
+    except Exception as e:
+        print(f'예약 삭제 오류: {e}')
+        return render_template('reservations.html', error='예약 삭제 중 오류가 발생했습니다.')
+
+@reservation_bp.route('/export-csv')
+@jwt_required(current_app)
+def export_reservations_csv():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM reservations ORDER BY created_at DESC')
+        reservations = cursor.fetchall()
+        conn.close()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['고객ID', '일정ID', '상태', '예약일', '인원수', '총금액', '메모', '생성일', '수정일'])
+        for res in reservations:
+            writer.writerow([
+                res['customer_id'],
+                res['schedule_id'],
+                res['status'],
+                res['booking_date'],
+                res['number_of_people'],
+                res['total_price'],
+                res['notes'],
+                res['created_at'],
+                res['updated_at']
+            ])
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Disposition'] = 'attachment; filename=reservations.csv'
+        return response
+    except Exception as e:
+        print(f'CSV 내보내기 오류: {e}')
+        raise APIError('CSV 내보내기 중 오류가 발생했습니다.', 500)
+
+@reservation_bp.route('/create', methods=['GET', 'POST'])
+@jwt_required(current_app)
+def create_reservation_page():
+    if request.method == 'POST':
+        customer_id = request.form.get('customer_id')
+        schedule_id = request.form.get('schedule_id')
+        number_of_people = request.form.get('number_of_people', 1)
+        total_price = request.form.get('total_price', 0)
+        notes = request.form.get('notes', '')
+        if not customer_id or not schedule_id:
+            return render_template('create_reservation.html', error='고객과 일정 정보는 필수입니다.')
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        current_time = datetime.now().isoformat()
+        try:
+            cursor.execute("""
+                INSERT INTO reservations (customer_id, schedule_id, number_of_people, total_price, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (customer_id, schedule_id, number_of_people, total_price, notes, current_time, current_time))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('reservation.reservations_page'))
+        except Exception as e:
+            conn.close()
+            print(f'예약 등록 오류: {e}')
+            return render_template('create_reservation.html', error='예약 등록 중 오류가 발생했습니다.')
+    return render_template('create_reservation.html')
+
+@reservation_bp.route('/edit/<int:reservation_id>', methods=['GET', 'POST'])
+@jwt_required(current_app)
+def edit_reservation_page(reservation_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
+    reservation = cursor.fetchone()
+    conn.close()
+    if not reservation:
+        return render_template('reservations.html', error='예약을 찾을 수 없습니다.')
+    if request.method == 'POST':
+        number_of_people = request.form.get('number_of_people', 1)
+        total_price = request.form.get('total_price', 0)
+        notes = request.form.get('notes', '')
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        current_time = datetime.now().isoformat()
+        try:
+            cursor.execute("""
+                UPDATE reservations
+                SET number_of_people = ?, total_price = ?, notes = ?, updated_at = ?
+                WHERE id = ?
+            """, (number_of_people, total_price, notes, current_time, reservation_id))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('reservation.reservations_page'))
+        except Exception as e:
+            conn.close()
+            print(f'예약 수정 오류: {e}')
+            return render_template('edit_reservation.html', reservation=reservation, error='예약 수정 중 오류가 발생했습니다.')
+    return render_template('edit_reservation.html', reservation=reservation) 

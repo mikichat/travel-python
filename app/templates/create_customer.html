@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}새 고객 추가{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">새 고객 추가</h1>
+
+    {% if error %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <strong class="font-bold">오류!</strong>
+        <span class="block sm:inline">{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="bg-white shadow-md rounded-lg p-6">
+        <form action="{{ url_for('customer.create_customer_page') }}" method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="mb-4">
+                    <label for="name" class="block text-gray-700 text-sm font-bold mb-2">이름:</label>
+                    <input type="text" name="name" id="name" value="{{ request.form.get('name', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    {% if errors and errors.name %}
+                    <p class="text-red-500 text-xs italic">{{ errors.name }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="phone" class="block text-gray-700 text-sm font-bold mb-2">전화번호:</label>
+                    <input type="text" name="phone" id="phone" value="{{ request.form.get('phone', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    {% if errors and errors.phone %}
+                    <p class="text-red-500 text-xs italic">{{ errors.phone }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="email" class="block text-gray-700 text-sm font-bold mb-2">이메일:</label>
+                    <input type="email" name="email" id="email" value="{{ request.form.get('email', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    {% if errors and errors.email %}
+                    <p class="text-red-500 text-xs italic">{{ errors.email }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="address" class="block text-gray-700 text-sm font-bold mb-2">주소:</label>
+                    <input type="text" name="address" id="address" value="{{ request.form.get('address', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
+                <div class="md:col-span-2 mb-4">
+                    <label for="notes" class="block text-gray-700 text-sm font-bold mb-2">메모:</label>
+                    <textarea name="notes" id="notes"
+                              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" rows="3">{{ request.form.get('notes', '') }}</textarea>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-6">
+                <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    고객 생성
+                </button>
+                <a href="{{ url_for('customer.customers_page') }}"
+                   class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+                    취소
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}고객 관리{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">고객 관리</h1>
+
+    <!-- 검색 및 필터링 폼 -->
+    <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <form action="{{ url_for('customer.customers_page') }}" method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label for="search_term" class="block text-sm font-medium text-gray-700">검색</label>
+                <input type="text" name="search_term" id="search_term" value="{{ request.args.get('search_term', '') }}"
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="이름, 이메일, 전화번호, 주소">
+            </div>
+            <div>
+                <label for="sort_by" class="block text-sm font-medium text-gray-700">정렬 기준</label>
+                <select name="sort_by" id="sort_by"
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="name" {% if request.args.get('sort_by') == 'name' %}selected{% endif %}>이름</option>
+                    <option value="email" {% if request.args.get('sort_by') == 'email' %}selected{% endif %}>이메일</option>
+                    <option value="created_at" {% if request.args.get('sort_by') == 'created_at' %}selected{% endif %}>등록일</option>
+                </select>
+            </div>
+            <div>
+                <label for="sort_order" class="block text-sm font-medium text-gray-700">정렬 순서</label>
+                <select name="sort_order" id="sort_order"
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="asc" {% if request.args.get('sort_order') == 'asc' %}selected{% endif %}>오름차순</option>
+                    <option value="desc" {% if request.args.get('sort_order') == 'desc' %}selected{% endif %}>내림차순</option>
+                </select>
+            </div>
+            <div class="col-span-1 md:col-span-3">
+                <div class="flex items-center space-x-4">
+                    <input type="checkbox" name="has_email" id="has_email" value="true" {% if request.args.get('has_email') == 'true' %}checked{% endif %} class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                    <label for="has_email" class="text-sm font-medium text-gray-700">이메일 있는 고객</label>
+                    <input type="checkbox" name="has_phone" id="has_phone" value="true" {% if request.args.get('has_phone') == 'true' %}checked{% endif %} class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                    <label for="has_phone" class="text-sm font-medium text-gray-700">전화번호 있는 고객</label>
+                    <input type="checkbox" name="has_address" id="has_address" value="true" {% if request.args.get('has_address') == 'true' %}checked{% endif %} class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                    <label for="has_address" class="text-sm font-medium text-gray-700">주소 있는 고객</label>
+                </div>
+            </div>
+            <div class="md:col-span-3 flex justify-end space-x-3">
+                <button type="submit"
+                        class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    적용
+                </button>
+                <a href="{{ url_for('customer.customers_page') }}"
+                   class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    초기화
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- 메시지 및 에러 표시 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mb-4">
+                {% for category, message in messages %}
+                    <div class="p-3 rounded-md {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    {% if message %}
+        <div class="mb-4 p-3 rounded-md bg-green-100 text-green-800">
+            {{ message }}
+        </div>
+    {% endif %}
+    {% if error %}
+        <div class="mb-4 p-3 rounded-md bg-red-100 text-red-800">
+            {{ error }}
+        </div>
+    {% endif %}
+
+
+    <!-- 버튼 그룹 -->
+    <div class="flex justify-between items-center mb-6">
+        <a href="{{ url_for('customer.create_customer_page') }}"
+           class="px-5 py-2 bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+            <i class="fas fa-plus mr-2"></i>새 고객 추가
+        </a>
+        <a href="{{ url_for('customer.export_customers_csv',
+                           search_term=request.args.get('search_term', ''),
+                           sort_by=request.args.get('sort_by', 'name'),
+                           sort_order=request.args.get('sort_order', 'asc'),
+                           has_email=request.args.get('has_email', 'false'),
+                           has_phone=request.args.get('has_phone', 'false'),
+                           has_address=request.args.get('has_address', 'false')
+                           ) }}"
+           class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <i class="fas fa-file-csv mr-2"></i>CSV 내보내기
+        </a>
+    </div>
+
+    <!-- 고객 목록 테이블 -->
+    <div class="bg-white shadow-md rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+            <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">전화번호</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주소</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">메모</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
+                <th scope="col" class="relative px-6 py-3"><span class="sr-only">작업</span></th>
+            </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+            {% for customer in customers %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ customer.id }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.name }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.phone }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.email }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.address }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 truncate max-w-xs" title="{{ customer.notes }}">{{ customer.notes | default('N/A', true) }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.created_at.split('T')[0] if customer.created_at else 'N/A' }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <a href="{{ url_for('customer.edit_customer_page', customer_id=customer.id) }}"
+                       class="text-indigo-600 hover:text-indigo-900 mr-4">수정</a>
+                    <form action="{{ url_for('customer.delete_customer_page', customer_id=customer.id) }}" method="POST"
+                          class="inline" onsubmit="return confirm('정말로 이 고객을 삭제하시겠습니까? 관련 예약이 있다면 삭제할 수 없습니다.');">
+                        <button type="submit" class="text-red-600 hover:text-red-900">삭제</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                    고객이 없습니다.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    <div class="mt-6 flex justify-between items-center">
+        <div class="text-sm text-gray-700">
+            총 {{ total_customers_count }}명의 고객 중 {{ (current_page - 1) * items_per_page + 1 }} - {{ (current_page - 1) * items_per_page + customers|length }} 표시
+        </div>
+        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            {% if current_page > 1 %}
+            <a href="{{ url_for('customer.customers_page', page=current_page - 1,
+                           search_term=request.args.get('search_term', ''),
+                           sort_by=request.args.get('sort_by', 'name'),
+                           sort_order=request.args.get('sort_order', 'asc'),
+                           has_email=request.args.get('has_email', 'false'),
+                           has_phone=request.args.get('has_phone', 'false'),
+                           has_address=request.args.get('has_address', 'false')
+                           ) }}"
+               class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                이전
+            </a>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+            <a href="{{ url_for('customer.customers_page', page=p,
+                           search_term=request.args.get('search_term', ''),
+                           sort_by=request.args.get('sort_by', 'name'),
+                           sort_order=request.args.get('sort_order', 'asc'),
+                           has_email=request.args.get('has_email', 'false'),
+                           has_phone=request.args.get('has_phone', 'false'),
+                           has_address=request.args.get('has_address', 'false')
+                           ) }}"
+               class="relative inline-flex items-center px-4 py-2 border {% if p == current_page %}bg-indigo-500 text-white{% else %}border-gray-300 bg-white text-gray-700 hover:bg-gray-50{% endif %} text-sm font-medium">
+                {{ p }}
+            </a>
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+            <a href="{{ url_for('customer.customers_page', page=current_page + 1,
+                           search_term=request.args.get('search_term', ''),
+                           sort_by=request.args.get('sort_by', 'name'),
+                           sort_order=request.args.get('sort_order', 'asc'),
+                           has_email=request.args.get('has_email', 'false'),
+                           has_phone=request.args.get('has_phone', 'false'),
+                           has_address=request.args.get('has_address', 'false')
+                           ) }}"
+               class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                다음
+            </a>
+            {% endif %}
+        </nav>
+    </div>
+</div>
+{% endblock %}

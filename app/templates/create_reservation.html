@@ -12,7 +12,7 @@
     </div>
     {% endif %}
 
-    <form action="{{ url_for('create_reservation_page') }}" method="POST" class="space-y-4">
+    <form action="{{ url_for('reservation.create_reservation_page') }}" method="POST" class="space-y-4">
         <div>
             <label for="customer_id" class="block text-sm font-medium text-gray-700">고객</label>
             <select id="customer_id" name="customer_id" required
@@ -80,7 +80,7 @@
             <button type="submit" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 예약 추가
             </button>
-            <a href="{{ url_for('reservations_page') }}" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <a href="{{ url_for('reservation.reservations_page') }}" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 취소
             </a>
         </div>

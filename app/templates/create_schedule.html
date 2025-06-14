@@ -14,7 +14,7 @@
     {% endif %}
 
     <div class="bg-white shadow-md rounded-lg p-6">
-        <form action="{{ url_for('create_schedule') }}" method="POST">
+        <form action="{{ url_for('schedule.create_schedule_page') }}" method="POST">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="md:col-span-2 mb-4">
                     <label for="title" class="block text-gray-700 text-sm font-bold mb-2">일정 제목:</label>
@@ -92,7 +92,7 @@
                         class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                     일정 생성
                 </button>
-                <a href="{{ url_for('schedules') }}"
+                <a href="{{ url_for('schedule.schedules_page') }}"
                    class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
                     취소
                 </a>
