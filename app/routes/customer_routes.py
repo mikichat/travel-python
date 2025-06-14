@@ -23,9 +23,52 @@ def format_datetime_filter(datetime_str):
 def customers_page():
     """고객 목록 페이지"""
     try:
+        # 검색 및 필터링 파라미터 가져오기
+        search_term = request.args.get('search_term', '').strip()
+        sort_by = request.args.get('sort_by', 'created_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        has_email = request.args.get('has_email') == 'true'
+        has_phone = request.args.get('has_phone') == 'true'
+        has_address = request.args.get('has_address') == 'true'
+        
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers ORDER BY created_at DESC')
+        
+        # 기본 쿼리
+        query = 'SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers'
+        
+        # WHERE 조건 구성
+        conditions = []
+        params = []
+        
+        if search_term:
+            conditions.append("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ? OR notes LIKE ?)")
+            search_pattern = f"%{search_term}%"
+            params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
+        
+        if has_email:
+            conditions.append("email IS NOT NULL AND email != ''")
+        
+        if has_phone:
+            conditions.append("phone IS NOT NULL AND phone != ''")
+        
+        if has_address:
+            conditions.append("address IS NOT NULL AND address != ''")
+        
+        # WHERE 절 추가
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        # 정렬
+        valid_sort_fields = ['name', 'email', 'created_at', 'phone', 'address']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'created_at'
+        
+        sort_direction = 'DESC' if sort_order == 'desc' else 'ASC'
+        query += f" ORDER BY {sort_by} {sort_direction}"
+        
+        # 쿼리 실행
+        cursor.execute(query, params)
         customers = cursor.fetchall()
         conn.close()
         
