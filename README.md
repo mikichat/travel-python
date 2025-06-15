@@ -9,6 +9,7 @@
 - **고객 관리**: 고객 정보 생성, 조회, 수정 및 삭제 기능
 - **여행 일정 관리**: 여행 일정 생성, 조회, 수정 및 삭제 기능
 - **예약 관리**: 여행 예약 생성, 조회, 수정 및 삭제 기능
+- **발권 관리**: 항공 발권 정보 생성, 조회, 수정 및 삭제 기능 (항공사, 비행 유형, 진행 상태, 코드, 여권 첨부, 메모 포함)
 - **데이터 내보내기**: 고객, 일정, 예약 데이터를 CSV 파일로 내보내는 기능
 - **반응형 UI**: Tailwind CSS를 활용한 현대적이고 반응형 웹 인터페이스
 - **모듈화된 구조**: Blueprint 기반의 깔끔한 코드 구조
@@ -30,13 +31,16 @@ travel-python/
 ├── app/                          # 메인 애플리케이션 패키지
 │   ├── __init__.py              # Flask 앱 팩토리
 │   ├── routes/                  # 라우트 모듈
-│   │   ├── __init__.py          # 대시보드 라우트 및 필터
+│   │   ├── __init__.py          
 │   │   ├── auth_routes.py       # 인증 관련 라우트
 │   │   ├── customer_routes.py   # 고객 관리 라우트
 │   │   ├── schedule_routes.py   # 일정 관리 라우트
-│   │   └── reservation_routes.py # 예약 관리 라우트
+│   │   ├── reservation_routes.py # 예약 관리 라우트
+│   │   ├── ticketing_routes.py  # 발권 관리 라우트
+│   │   └── audit_routes.py      # 변경 로그 라우트
 │   ├── models/                  # 데이터 모델 (향후 확장)
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── ticketing_model.py   # 발권 모델
 │   ├── utils/                   # 유틸리티 모듈
 │   │   ├── __init__.py
 │   │   ├── errors.py            # 오류 처리 및 APIError 클래스
@@ -50,6 +54,9 @@ travel-python/
 │   │   ├── customers.html       # 고객 관리 페이지
 │   │   ├── schedules.html       # 일정 관리 페이지
 │   │   ├── reservations.html    # 예약 관리 페이지
+│   │   ├── ticketing.html       # 발권 목록 페이지
+│   │   ├── create_ticketing.html # 새 발권 추가 페이지
+│   │   ├── edit_ticketing.html  # 발권 정보 편집 페이지
 │   │   └── components/          # 재사용 가능한 컴포넌트
 │   └── static/                  # 정적 파일 (CSS, JS, 이미지)
 │       ├── css/
@@ -119,23 +126,25 @@ python run.py
 
 ### 기본 워크플로우
 
-1. **회원가입/로그인**: `/register` 또는 `/login`에서 계정 생성 또는 로그인
-2. **대시보드**: `/dashboard`에서 전체 시스템 개요 확인
-   - 실시간 통계 (고객 수, 일정 수, 예약 수, 수익)
-   - 최근 예약 현황
-   - 시스템 알림
-   - 빠른 액션 버튼
-3. **고객 관리**: `/customers`에서 고객 정보 관리
-4. **일정 관리**: `/schedules`에서 여행 일정 관리
-5. **예약 관리**: `/reservations`에서 예약 정보 관리
+1.  **회원가입/로그인**: `/register` 또는 `/login`에서 계정 생성 또는 로그인
+2.  **대시보드**: `/dashboard`에서 전체 시스템 개요 확인
+    -   실시간 통계 (고객 수, 일정 수, 예약 수, 수익)
+    -   최근 예약 현황
+    -   시스템 알림
+    -   빠른 액션 버튼
+3.  **고객 관리**: `/customers`에서 고객 정보 관리
+4.  **일정 관리**: `/schedules`에서 여행 일정 관리
+5.  **예약 관리**: `/reservations`에서 예약 정보 관리
+6.  **발권 관리**: `/ticketing`에서 항공 발권 정보 관리
+    -   항공사 종류, 비행 유형 (편도, 왕복, 경유), 발권 진행 상태, 항공 발권 코드, 여권 첨부 및 메모 관리
 
 ### 대시보드 기능
 
-- **통계 카드**: 실시간 데이터베이스 기반 통계
-- **성장률 표시**: 지난 달 대비 성장률 계산
-- **최근 예약**: 최근 5개 예약 현황
-- **빠른 액션**: 새 고객/일정/예약 생성 바로가기
-- **시스템 알림**: 동적 알림 시스템
+-   **통계 카드**: 실시간 데이터베이스 기반 통계
+-   **성장률 표시**: 지난 달 대비 성장률 계산
+-   **최근 예약**: 최근 5개 예약 현황
+-   **빠른 액션**: 새 고객/일정/예약 생성 바로가기
+-   **시스템 알림**: 동적 알림 시스템
 
 ## 🔧 개발 가이드
 
@@ -143,11 +152,11 @@ python run.py
 
 이 프로젝트는 Flask의 Blueprint 패턴을 사용하여 모듈화되어 있습니다:
 
-- **routes/**: 각 기능별 라우트를 별도 파일로 분리
-- **utils/**: 공통 유틸리티 함수 및 클래스
-- **models/**: 데이터 모델 (향후 ORM 도입 시 확장)
-- **templates/**: Jinja2 템플릿 파일
-- **static/**: CSS, JavaScript, 이미지 등 정적 파일
+-   **routes/**: 각 기능별 라우트를 별도 파일로 분리
+-   **utils/**: 공통 유틸리티 함수 및 클래스
+-   **models/**: 데이터 모델 (향후 ORM 도입 시 확장)
+-   **templates/**: Jinja2 템플릿 파일
+-   **static/**: CSS, JavaScript, 이미지 등 정적 파일
 
 ### 오류 처리
 
@@ -195,36 +204,50 @@ def protected_route():
 ## 📊 API 엔드포인트
 
 ### 인증 API
-- `POST /api/auth/register` - 사용자 등록
-- `POST /api/auth/login` - 사용자 로그인
-- `GET /api/auth/me` - 현재 사용자 정보 조회
+
+-   `POST /api/auth/register` - 사용자 등록
+-   `POST /api/auth/login` - 사용자 로그인
+-   `GET /api/auth/me` - 현재 사용자 정보 조회
 
 ### 대시보드 API
-- `GET /dashboard/` - 대시보드 페이지 (통계 포함)
+
+-   `GET /dashboard/` - 대시보드 페이지 (통계 포함)
 
 ### 고객 API
-- `GET /api/customers` - 고객 목록 조회
-- `POST /api/customers` - 고객 생성
-- `GET /api/customers/<id>` - 특정 고객 조회
-- `PUT /api/customers/<id>` - 고객 정보 수정
-- `DELETE /api/customers/<id>` - 고객 삭제
-- `GET /customers/export-csv` - 고객 데이터 CSV 내보내기
+
+-   `GET /api/customers` - 고객 목록 조회
+-   `POST /api/customers` - 고객 생성
+-   `GET /api/customers/<id>` - 특정 고객 조회
+-   `PUT /api/customers/<id>` - 고객 정보 수정
+-   `DELETE /api/customers/<id>` - 고객 삭제
+-   `GET /customers/export-csv` - 고객 데이터 CSV 내보내기
 
 ### 일정 API
-- `GET /api/schedules` - 일정 목록 조회
-- `POST /api/schedules` - 일정 생성
-- `GET /api/schedules/<id>` - 특정 일정 조회
-- `PUT /api/schedules/<id>` - 일정 정보 수정
-- `DELETE /api/schedules/<id>` - 일정 삭제
-- `GET /schedules/export-csv` - 일정 데이터 CSV 내보내기
+
+-   `GET /api/schedules` - 일정 목록 조회
+-   `POST /api/schedules` - 일정 생성
+-   `GET /api/schedules/<id>` - 특정 일정 조회
+-   `PUT /api/schedules/<id>` - 일정 정보 수정
+-   `DELETE /api/schedules/<id>` - 일정 삭제
+-   `GET /schedules/export-csv` - 일정 데이터 CSV 내보내기
 
 ### 예약 API
-- `GET /api/reservations` - 예약 목록 조회
-- `POST /api/reservations` - 예약 생성
-- `GET /api/reservations/<id>` - 특정 예약 조회
-- `PUT /api/reservations/<id>` - 예약 정보 수정
-- `DELETE /api/reservations/<id>` - 예약 삭제
-- `GET /reservations/export-csv` - 예약 데이터 CSV 내보내기
+
+-   `GET /api/reservations` - 예약 목록 조회
+-   `POST /api/reservations` - 예약 생성
+-   `GET /api/reservations/<id>` - 특정 예약 조회
+-   `PUT /api/reservations/<id>` - 예약 정보 수정
+-   `DELETE /api/reservations/<id>` - 예약 삭제
+-   `GET /reservations/export-csv` - 예약 데이터 CSV 내보내기
+
+### 발권 API (New!)
+
+-   `GET /ticketing/` - 발권 목록 페이지
+-   `GET /ticketing/create` - 새 발권 추가 페이지
+-   `POST /ticketing/create` - 새 발권 정보 생성
+-   `GET /ticketing/edit/<id>` - 발권 정보 편집 페이지
+-   `POST /ticketing/edit/<id>` - 발권 정보 업데이트
+-   `POST /ticketing/delete/<id>` - 발권 정보 삭제
 
 ## 🧪 테스트
 
@@ -232,47 +255,31 @@ def protected_route():
 
 ## 📝 최근 업데이트
 
+### v2.2.0 - 발권 관리 기능 추가 및 UI/버그 개선 (2024-06-16)
+
+-   **신규 기능**: 발권 정보 관리 기능 추가 (모델, 라우트, 템플릿 포함)
+-   **데이터베이스 스키마 업데이트**: `ticketing` 테이블 생성
+-   **UI 개선**: '예약 관리' 및 '변경 로그' 메뉴 UI를 '일정 관리'와 동일하게 개선
+-   **UI 개선**: '새 발권 추가' 및 '발권 정보 편집' 페이지 UI를 기존의 '새 예약 생성' 및 '예약 수정' 페이지와 일관되게 디자인
+-   **버그 수정**: 루트 URL (/) 접속 시 대시보드로 자동 리디렉션되도록 수정
+-   **버그 수정**: 로그인 폼 `POST /login` 404 오류 수정
+-   **버그 수정**: 대시보드 '최근 7일 예약' 표기 오류 진단 및 템플릿 수정
+
 ### v2.1.0 - 대시보드 기능 완전 구현 (2024-06-14)
 
-- **대시보드 완성**: 실시간 통계 및 알림 시스템 구현
-- **템플릿 필터**: 상태별 색상, 통화 형식, 날짜 형식 필터 추가
-- **오류 해결**: moment 함수 오류 해결 및 JavaScript 기반 날짜 표시
-- **데이터베이스 통계**: 실시간 통계 조회 및 성장률 계산
-- **동적 알림**: 시스템 상태에 따른 동적 알림 생성
+-   **대시보드 완성**: 실시간 통계 및 알림 시스템 구현
+-   **템플릿 필터**: 상태별 색상, 통화 형식, 날짜 형식 필터 추가
+-   **오류 해결**: moment 함수 오류 해결 및 JavaScript 기반 날짜 표시
+-   **데이터베이스 통계**: 실시간 통계 조회 및 성장률 계산
+-   **동적 알림**: 시스템 상태에 따른 동적 알림 생성
 
 ### v2.0.0 - 구조 리팩토링 (2024-06-14)
 
-- **모듈화**: 단일 `app.py` 파일을 Blueprint 기반 모듈로 분리
-- **표준 구조**: Flask 표준 폴더 구조 적용
-- **오류 처리 개선**: 표준화된 APIError 클래스 및 오류 핸들러 추가
-- **설정 관리**: 환경별 설정 파일 분리
-- **코드 품질**: 가독성 및 유지보수성 향상
-
-### 주요 변경사항
-
-1. **파일 구조 개선**
-   - `app/` 디렉토리 생성 및 모듈화
-   - `routes/`, `utils/`, `models/` 디렉토리 분리
-   - `config.py` 및 `run.py` 추가
-
-2. **Blueprint 패턴 도입**
-   - `dashboard_bp`: 대시보드 라우트
-   - `auth_bp`: 인증 관련 라우트
-   - `customer_bp`: 고객 관리 라우트
-   - `schedule_bp`: 일정 관리 라우트
-   - `reservation_bp`: 예약 관리 라우트
-
-3. **유틸리티 모듈**
-   - `errors.py`: 표준화된 오류 처리
-   - `auth.py`: JWT 인증 데코레이터
-   - `filters.py`: 템플릿 필터 함수들
-
-4. **대시보드 기능**
-   - 실시간 데이터베이스 통계
-   - 성장률 계산
-   - 최근 예약 표시
-   - 동적 알림 시스템
-   - 빠른 액션 버튼
+-   **모듈화**: 단일 `app.py` 파일을 Blueprint 기반 모듈로 분리
+-   **표준 구조**: Flask 표준 폴더 구조 적용
+-   **오류 처리 개선**: 표준화된 APIError 클래스 및 오류 핸들러 추가
+-   **설정 관리**: 환경별 설정 파일 분리
+-   **코드 품질**: 가독성 및 유지보수성 향상
 
 ## 🤝 기여하기
 
