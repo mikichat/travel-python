@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}발권 정보 편집 - Travel CRM{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+        <div>
+            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                발권 정보 편집
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-600">
+                발권 정보를 수정해주세요.
+            </p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="rounded-md p-4 {% if category == 'success' %}bg-green-50 text-green-800{% elif category == 'danger' %}bg-red-50 text-red-800{% endif %}" role="alert">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form class="mt-8 space-y-6" action="{{ url_for('ticketing.edit_ticketing', ticketing_id=ticketing.id) }}" method="POST" enctype="multipart/form-data">
+            <div class="rounded-md shadow-sm -space-y-px">
+                <div>
+                    <label for="airline_type" class="sr-only">항공사 종류</label>
+                    <input id="airline_type" name="airline_type" type="text" required
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                           placeholder="항공사 종류 (예: 대한항공, 아시아나)" value="{{ ticketing.airline_type }}">
+                </div>
+                
+                <div class="py-2">
+                    <label class="block text-sm font-medium text-gray-700">비행 유형</label>
+                    <div class="mt-1 flex space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="flight_type" value="One-way" class="form-radio" {% if ticketing.flight_type == 'One-way' %}checked{% endif %} required>
+                            <span class="ml-2 text-gray-700">편도</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="flight_type" value="Round-trip" class="form-radio" {% if ticketing.flight_type == 'Round-trip' %}checked{% endif %} required>
+                            <span class="ml-2 text-gray-700">왕복</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="flight_type" value="Transit" class="form-radio" {% if ticketing.flight_type == 'Transit' %}checked{% endif %} required>
+                            <span class="ml-2 text-gray-700">경유</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="ticketing_status" class="sr-only">발권진행상태</label>
+                    <select id="ticketing_status" name="ticketing_status" required
+                            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm">
+                        <option value="">-- 발권진행상태 선택 --</option>
+                        <option value="Pending" {% if ticketing.ticketing_status == 'Pending' %}selected{% endif %}>진행 중</option>
+                        <option value="Completed" {% if ticketing.ticketing_status == 'Completed' %}selected{% endif %}>완료</option>
+                        <option value="Cancelled" {% if ticketing.ticketing_status == 'Cancelled' %}selected{% endif %}>취소</option>
+                        <option value="Hold" {% if ticketing.ticketing_status == 'Hold' %}selected{% endif %}>대기</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="ticket_code" class="sr-only">항공발권코드</label>
+                    <input id="ticket_code" name="ticket_code" type="text" required
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                           placeholder="항공발권코드" value="{{ ticketing.ticket_code }}">
+                </div>
+
+                <div class="py-2">
+                    <label for="passport_attachment" class="block text-sm font-medium text-gray-700">여권 첨부 (선택 사항)</label>
+                    <input id="passport_attachment" name="passport_attachment" type="file"
+                           class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer bg-gray-50 focus:outline-none focus:border-blue-500 focus:ring-blue-500">
+                    <p class="mt-1 text-xs text-gray-500">PDF, JPG, PNG 파일만 허용됩니다.</p>
+                    {% if ticketing.passport_attachment_path %}
+                        <p class="mt-2 text-sm text-gray-600">현재 파일: <a href="{{ url_for('static', filename=ticketing.passport_attachment_path) }}" target="_blank" class="text-blue-600 hover:underline">보기</a></p>
+                        <div class="flex items-center mt-2">
+                            <input type="checkbox" id="clear_passport_attachment" name="clear_passport_attachment" value="1" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                            <label for="clear_passport_attachment" class="ml-2 block text-sm text-gray-900">기존 파일 삭제</label>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="memo" class="sr-only">메모</label>
+                    <textarea id="memo" name="memo" rows="4"
+                              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                              placeholder="메모 및 기타 추가 사항">{{ ticketing.memo }}</textarea>
+                </div>
+            </div>
+
+            <div>
+                <button type="submit"
+                        class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-save mr-2"></i> 발권 정보 업데이트
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 

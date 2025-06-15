@@ -9,6 +9,7 @@ from app.routes.schedule_routes import schedule_bp
 from app.routes.reservation_routes import reservation_bp
 from app.routes.dashboard_routes import dashboard_bp
 from app.routes.audit_routes import audit_bp
+from app.routes.ticketing_routes import ticketing_bp
 from app.utils.filters import register_filters
 
 def create_app():
@@ -65,6 +66,7 @@ def create_app():
     app.register_blueprint(reservation_bp, url_prefix='/reservations')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(audit_bp, url_prefix='/audit')
+    app.register_blueprint(ticketing_bp, url_prefix='/ticketing')
     
     @app.route('/')
     def index():

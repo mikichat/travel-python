@@ -101,6 +101,21 @@ def initialize_database():
             details TEXT
         )
     """)
+
+    # ticketing 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ticketing (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            airline_type TEXT NOT NULL,
+            flight_type TEXT NOT NULL,
+            ticketing_status TEXT NOT NULL,
+            ticket_code TEXT NOT NULL,
+            passport_attachment_path TEXT,
+            memo TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
     
     conn.commit()
     conn.close() 
