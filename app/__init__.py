@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, redirect, url_for
 import os
 from app.utils.errors import register_error_handlers
 from flask_jwt_extended import JWTManager
@@ -65,5 +65,9 @@ def create_app():
     app.register_blueprint(reservation_bp, url_prefix='/reservations')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(audit_bp, url_prefix='/audit')
+    
+    @app.route('/')
+    def index():
+        return redirect(url_for('dashboard.dashboard'))
     
     return app 

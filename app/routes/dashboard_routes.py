@@ -34,6 +34,8 @@ def dashboard():
         seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
         cursor.execute('SELECT COUNT(*) FROM reservations WHERE created_at >= ?', (seven_days_ago,))
         recent_reservations = cursor.fetchone()[0]
+
+        print(f'DEBUG: recent_reservations type: {type(recent_reservations)}, value: {recent_reservations}')
         
         # 최근 예약 목록 (최근 5개)
         cursor.execute("""
