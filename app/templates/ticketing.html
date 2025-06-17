@@ -121,9 +121,6 @@
 
     <!-- 발권 목록 테이블 -->
     <div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4 px-6 py-5">
-            전체 발권 내역
-        </h3>
         {% if ticketing_entries %}
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -147,8 +144,12 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ entry.ticketing_status }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ entry.ticket_code }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {% if entry.passport_attachment_path %}
-                                    <a href="{{ url_for('ticketing.view_passport', ticketing_id=entry.id) }}" target="_blank" class="text-blue-600 hover:underline">보기</a>
+                                {% if entry.passport_attachment_paths %}
+                                    {% for path in entry.passport_attachment_paths %}
+                                        {% if path %}
+                                            <a href="{{ url_for('ticketing.view_passport', ticketing_id=entry.id, filename=path) }}" target="_blank" class="text-blue-600 hover:underline mr-2">보기</a>
+                                        {% endif %}
+                                    {% endfor %}
                                 {% else %}
                                     없음
                                 {% endif %}

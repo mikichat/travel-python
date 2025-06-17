@@ -37,27 +37,21 @@ def create_ticketing():
         ticket_code = request.form['ticket_code']
         memo = request.form.get('memo', '')
         
-        passport_attachment_path = None
-        if 'passport_attachment' in request.files:
-            passport_file = request.files['passport_attachment']
+        uploaded_passport_paths = []
+        private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
+        os.makedirs(private_upload_folder, exist_ok=True)
+
+        for passport_file in request.files.getlist('passport_attachment'):
             if passport_file.filename != '':
-                # 파일 저장 로직: 'data/private_uploads' 폴더에 저장
-                private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
-                os.makedirs(private_upload_folder, exist_ok=True)
-                
-                # 파일명 해시화
                 file_extension = os.path.splitext(passport_file.filename)[1]
                 hashed_filename = hashlib.sha256(uuid.uuid4().bytes).hexdigest() + file_extension
-                
                 full_file_path = os.path.join(private_upload_folder, hashed_filename)
                 passport_file.save(full_file_path)
-                
-                # 데이터베이스에는 해시된 파일명만 저장
-                passport_attachment_path = hashed_filename
+                uploaded_passport_paths.append(hashed_filename)
 
         new_ticketing = Ticketing(id=None, airline_type=airline_type, flight_type=flight_type, 
                                   ticketing_status=ticketing_status, ticket_code=ticket_code,
-                                  passport_attachment_path=passport_attachment_path, memo=memo,
+                                  passport_attachment_path=','.join(uploaded_passport_paths), memo=memo,
                                   created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat())
         new_ticketing.save()
         flash('발권 정보가 성공적으로 추가되었습니다!', 'success')
@@ -82,30 +76,30 @@ def edit_ticketing(ticketing_id):
         ticketing.memo = request.form.get('memo', '')
         ticketing.updated_at = datetime.now().isoformat()
 
-        if 'passport_attachment' in request.files:
-            passport_file = request.files['passport_attachment']
-            if passport_file.filename != '':
-                private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
-                os.makedirs(private_upload_folder, exist_ok=True)
+        private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
+        os.makedirs(private_upload_folder, exist_ok=True)
 
-                # 기존 파일 삭제
-                if ticketing.passport_attachment_path and \
-                   os.path.exists(os.path.join(private_upload_folder, ticketing.passport_attachment_path)):
-                    os.remove(os.path.join(private_upload_folder, ticketing.passport_attachment_path))
-                
-                # 새 파일 저장 로직 (파일명 해시화)
+        current_passport_paths = ticketing.passport_attachment_paths[:] # 현재 파일 목록 복사
+        files_to_remove = request.form.getlist('remove_passport_attachment[]')
+
+        # 삭제할 파일 처리
+        for filename_to_remove in files_to_remove:
+            if filename_to_remove in current_passport_paths:
+                full_path_to_remove = os.path.join(private_upload_folder, filename_to_remove)
+                if os.path.exists(full_path_to_remove):
+                    os.remove(full_path_to_remove)
+                current_passport_paths.remove(filename_to_remove)
+        
+        # 새 파일 업로드 처리
+        for passport_file in request.files.getlist('passport_attachment'):
+            if passport_file.filename != '':
                 file_extension = os.path.splitext(passport_file.filename)[1]
                 hashed_filename = hashlib.sha256(uuid.uuid4().bytes).hexdigest() + file_extension
                 full_file_path = os.path.join(private_upload_folder, hashed_filename)
                 passport_file.save(full_file_path)
-                ticketing.passport_attachment_path = hashed_filename
-            elif request.form.get('clear_passport_attachment') == '1':
-                # 파일 지우기 요청이 있었고 기존 파일이 있다면 삭제
-                private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
-                if ticketing.passport_attachment_path and \
-                   os.path.exists(os.path.join(private_upload_folder, ticketing.passport_attachment_path)):
-                    os.remove(os.path.join(private_upload_folder, ticketing.passport_attachment_path))
-                ticketing.passport_attachment_path = None
+                current_passport_paths.append(hashed_filename)
+
+        ticketing.passport_attachment_paths = current_passport_paths # 업데이트된 경로 리스트 할당
 
         ticketing.save()
         flash('발권 정보가 성공적으로 업데이트되었습니다!', 'success')
@@ -117,32 +111,31 @@ def edit_ticketing(ticketing_id):
 @ticketing_bp.route('/delete/<int:ticketing_id>', methods=['POST'])
 @jwt_required(current_app)
 def delete_ticketing(ticketing_id):
-    ticketing = Ticketing.get_by_id(ticketing_id)
-    if not ticketing:
-        flash('발권 정보를 찾을 수 없습니다.', 'danger')
-    else:
-        # 파일이 있다면 삭제
-        private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
-        if ticketing.passport_attachment_path and \
-           os.path.exists(os.path.join(private_upload_folder, ticketing.passport_attachment_path)):
-            os.remove(os.path.join(private_upload_folder, ticketing.passport_attachment_path))
-        Ticketing.delete(ticketing_id)
-        flash('발권 정보가 성공적으로 삭제되었습니다.', 'success')
+    # 모델에서 삭제된 파일 경로 리스트를 반환하도록 변경했으므로, 여기서 파일을 삭제
+    files_to_delete = Ticketing.delete(ticketing_id)
+    private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
+
+    for filename in files_to_delete:
+        full_path = os.path.join(private_upload_folder, filename)
+        if os.path.exists(full_path):
+            os.remove(full_path)
+
+    flash('발권 정보가 성공적으로 삭제되었습니다.', 'success')
     return redirect(url_for('ticketing.ticketing_page'))
 
 # 안전한 여권 이미지 뷰어 라우트
-@ticketing_bp.route('/passport/<int:ticketing_id>')
+@ticketing_bp.route('/passport/<int:ticketing_id>/<string:filename>')
 @jwt_required(current_app)
-def view_passport(ticketing_id):
+def view_passport(ticketing_id, filename):
     ticketing = Ticketing.get_by_id(ticketing_id)
-    if not ticketing or not ticketing.passport_attachment_path:
-        flash('여권 이미지를 찾을 수 없습니다.', 'danger')
+    if not ticketing or filename not in ticketing.passport_attachment_paths:
+        flash('여권 이미지를 찾을 수 없거나 접근 권한이 없습니다.', 'danger')
         return redirect(url_for('ticketing.ticketing_page'))
 
     private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
     
     # 보안을 위해 파일 이름 유효성 검사 (폴더 구조 변경 시 필요)
     # os.path.basename을 사용하여 경로 조작을 방지
-    filename = os.path.basename(ticketing.passport_attachment_path)
+    safe_filename = os.path.basename(filename) # 이미 해시된 파일명이므로, 추가적인 보안 검사는 DB 조회로 충분
     
-    return send_from_directory(private_upload_folder, filename) 
+    return send_from_directory(private_upload_folder, safe_filename) 

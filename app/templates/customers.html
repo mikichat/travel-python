@@ -3,31 +3,65 @@
 {% block title %}고객 관리{% endblock %}
 
 {% block content %}
-<div class="container mx-auto p-4">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">고객 관리</h1>
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">고객 관리</h1>
+            <p class="mt-1 text-sm text-gray-600">고객 정보을 관리합니다</p>
+        </div>
+        <!-- 버튼 그룹 -->
+        <div class="flex space-x-3">
+            <a href="{{ url_for('customer.import_customers_excel') }}"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700">
+                <i class="fas fa-upload mr-2"></i>엑셀 업로드
+            </a>
+        
+            <a href="{{ url_for('customer.export_customers_excel') }}"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                <i class="fas fa-file-excel mr-2"></i>엑셀 내보내기
+            </a>
+            <a href="{{ url_for('customer.export_customers_csv',
+                            search_term=request.args.get('search_term', ''),
+                            sort_by=request.args.get('sort_by', 'name'),
+                            sort_order=request.args.get('sort_order', 'asc'),
+                            has_email=request.args.get('has_email', 'false'),
+                            has_phone=request.args.get('has_phone', 'false'),
+                            has_address=request.args.get('has_address', 'false')
+                            ) }}"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700">
+                <i class="fas fa-file-csv mr-2"></i>CSV 내보내기
+            </a>
+            <a href="{{ url_for('customer.create_customer_page') }}"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <i class="fas fa-plus mr-2"></i>새 고객 추가
+            </a>
+        </div>
+    </div>
 
     <!-- 검색 및 필터링 폼 -->
-    <div class="bg-white shadow-md rounded-lg p-6 mb-6">
-        <form action="{{ url_for('customer.customers_page') }}" method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
+        <form action="{{ url_for('customer.customers_page') }}" method="GET" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-                <label for="search_term" class="block text-sm font-medium text-gray-700">검색</label>
+                <label for="search_term" class="block text-sm font-medium text-gray-700 mb-1">검색</label>
                 <input type="text" name="search_term" id="search_term" value="{{ request.args.get('search_term', '') }}"
-                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                        placeholder="이름, 이메일, 전화번호, 주소">
             </div>
             <div>
-                <label for="sort_by" class="block text-sm font-medium text-gray-700">정렬 기준</label>
+                <label for="sort_by" class="block text-sm font-medium text-gray-700 mb-1">정렬 기준</label>
                 <select name="sort_by" id="sort_by"
-                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="name" {% if request.args.get('sort_by') == 'name' %}selected{% endif %}>이름</option>
                     <option value="email" {% if request.args.get('sort_by') == 'email' %}selected{% endif %}>이메일</option>
                     <option value="created_at" {% if request.args.get('sort_by') == 'created_at' %}selected{% endif %}>등록일</option>
                 </select>
             </div>
             <div>
-                <label for="sort_order" class="block text-sm font-medium text-gray-700">정렬 순서</label>
+                <label for="sort_order" class="block text-sm font-medium text-gray-700 mb-1">정렬 순서</label>
                 <select name="sort_order" id="sort_order"
-                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     <option value="asc" {% if request.args.get('sort_order') == 'asc' %}selected{% endif %}>오름차순</option>
                     <option value="desc" {% if request.args.get('sort_order') == 'desc' %}selected{% endif %}>내림차순</option>
                 </select>
@@ -42,50 +76,90 @@
                     <label for="has_address" class="text-sm font-medium text-gray-700">주소 있는 고객</label>
                 </div>
             </div>
-            <div class="md:col-span-3 flex justify-end space-x-3">
+        </div>
+            <!-- 검색 버튼 -->
+            <div class="flex items-center justify-between">
+                <div class="flex space-x-3">
                 <button type="submit"
-                        class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    적용
+                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-search mr-2"></i>
+                    검색
                 </button>
                 <a href="{{ url_for('customer.customers_page') }}"
-                   class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-undo mr-2"></i>
                     초기화
                 </a>
-            </div>
+                </div>
+            
+                <!-- 검색 결과 개수 -->
+                {% if customers %}
+                <div class="text-sm text-gray-600">
+                    총 <span class="font-medium">{{ customers|length }}</span>개의 일정이 검색되었습니다.
+                </div>
+                {% endif %}
+            </div>    
         </form>
     </div>
 
     <!-- 메시지 및 에러 표시 -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="mb-4">
+            <div class="space-y-4">
                 {% for category, message in messages %}
-                    <div class="p-3 rounded-md {% if category == 'success' %}bg-green-100 text-green-800{% elif category == 'error' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
-                        {{ message }}
+                    <div class="p-4 rounded-md {% if category == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border border-red-200 text-red-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                {% if category == 'success' %}
+                                    <i class="fas fa-check-circle"></i>
+                                {% elif category == 'error' %}
+                                    <i class="fas fa-exclamation-circle"></i>
+                                {% else %}
+                                    <i class="fas fa-info-circle"></i>
+                                {% endif %}
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium">{{ message }}</p>
+                            </div>
+                        </div>
                     </div>
                 {% endfor %}
             </div>
         {% endif %}
     {% endwith %}
     {% if message %}
-        <div class="mb-4 p-3 rounded-md bg-green-100 text-green-800">
-            {{ message }}
+        <div class="p-4 rounded-md bg-green-50 border border-green-200 text-green-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium">{{ message }}</p>
+                </div>
+            </div>
         </div>
     {% endif %}
     {% if error %}
-        <div class="mb-4 p-3 rounded-md bg-red-100 text-red-800">
-            {{ error }}
+        <div class="p-4 rounded-md bg-red-50 border border-red-200 text-red-800">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium">{{ error }}</p>
+                </div>
+            </div>
         </div>
     {% endif %}
 
     <!-- 검색 결과 정보 -->
     {% if request.args.get('search_term') or request.args.get('has_email') or request.args.get('has_phone') or request.args.get('has_address') %}
-        <div class="mb-4 p-3 rounded-md bg-blue-50 border border-blue-200">
+        <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
             <div class="flex items-center justify-between">
                 <div class="text-sm text-blue-800">
                     검색 결과: 총 <span class="font-medium">{{ total_customers_count }}</span>명의 고객이 검색되었습니다.
                 </div>
-                <a href="{{ url_for('customer.customers_page') }}" 
+                <a href="{{ url_for('customer.customers_page') }}"
                    class="text-sm text-blue-600 hover:text-blue-800 underline">
                     검색 조건 초기화
                 </a>
@@ -93,84 +167,95 @@
         </div>
     {% endif %}
 
-    <!-- 버튼 그룹 -->
-    <div class="flex justify-between items-center mb-6">
-        <div class="flex space-x-3">
-            <a href="{{ url_for('customer.create_customer_page') }}"
-               class="px-5 py-2 bg-green-600 text-white font-semibold rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                <i class="fas fa-plus mr-2"></i>새 고객 추가
-            </a>
-            <a href="{{ url_for('customer.import_customers_excel') }}"
-               class="px-5 py-2 bg-yellow-600 text-white font-semibold rounded-md shadow-sm hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
-                <i class="fas fa-upload mr-2"></i>엑셀 업로드
-            </a>
-        </div>
-        <div class="flex space-x-3">
-            <a href="{{ url_for('customer.export_customers_excel') }}"
-               class="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                <i class="fas fa-file-excel mr-2"></i>엑셀 내보내기
-            </a>
-            <a href="{{ url_for('customer.export_customers_csv',
-                               search_term=request.args.get('search_term', ''),
-                               sort_by=request.args.get('sort_by', 'name'),
-                               sort_order=request.args.get('sort_order', 'asc'),
-                               has_email=request.args.get('has_email', 'false'),
-                               has_phone=request.args.get('has_phone', 'false'),
-                               has_address=request.args.get('has_address', 'false')
-                               ) }}"
-               class="px-5 py-2 bg-gray-600 text-white font-semibold rounded-md shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                <i class="fas fa-file-csv mr-2"></i>CSV 내보내기
-            </a>
-        </div>
-    </div>
-
     <!-- 고객 목록 테이블 -->
-    <div class="bg-white shadow-md rounded-lg overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-            <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">전화번호</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주소</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">메모</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
-                <th scope="col" class="relative px-6 py-3"><span class="sr-only">작업</span></th>
-            </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-            {% for customer in customers %}
-            <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ customer.id }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.name }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.phone }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.email }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.address }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 truncate max-w-xs" title="{{ customer.notes }}">{{ customer.notes | default('N/A', true) }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.created_at | format_date if customer.created_at else 'N/A' }}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="{{ url_for('customer.edit_customer_page', customer_id=customer.id) }}"
-                       class="text-indigo-600 hover:text-indigo-900 mr-4">수정</a>
-                    <form action="{{ url_for('customer.delete_customer_page', customer_id=customer.id) }}" method="POST"
-                          class="inline" onsubmit="return confirm('정말로 이 고객을 삭제하시겠습니까? 관련 예약이 있다면 삭제할 수 없습니다.');">
-                        <button type="submit" class="text-red-600 hover:text-red-900">삭제</button>
-                    </form>
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+    <div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+        {% if customers %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이름</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">전화번호</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">주소</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">메모</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
+                    <th scope="col" class="relative px-6 py-3"><span class="sr-only">작업</span></th>
+                </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                {% for customer in customers %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ customer.id }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.phone }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.email }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.address }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 truncate max-w-xs" title="{{ customer.notes }}">{{ customer.notes | default('N/A', true) }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.created_at | format_date if customer.created_at else 'N/A' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div class="flex items-center space-x-2">
+                            <a href="{{ url_for('customer.edit_customer_page', customer_id=customer.id) }}"
+                               class="text-blue-600 hover:text-blue-900" title="수정">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{{ url_for('customer.delete_customer_page', customer_id=customer.id) }}" method="POST"
+                                  class="inline" onsubmit="return confirm('정말로 이 고객을 삭제하시겠습니까? 관련 예약이 있다면 삭제할 수 없습니다.');">
+                                <button type="submit" class="text-red-600 hover:text-red-900" title="삭제">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        <div class="text-center py-12">
+                            <i class="fas fa-user-times text-gray-400 text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">
+                                {% if request.args.get('search_term') or request.args.get('has_email') or request.args.get('has_phone') or request.args.get('has_address') %}
+                                    검색 조건에 맞는 고객이 없습니다.
+                                {% else %}
+                                    등록된 고객이 없습니다.
+                                {% endif %}
+                            </h3>
+                            <p class="text-sm text-gray-500">새로운 고객을 추가하거나 검색 조건을 변경해 보세요.</p>
+                            <div class="mt-6">
+                                <a href="{{ url_for('customer.create_customer_page') }}"
+                                   class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    새 고객 추가
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-user-times text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">
                     {% if request.args.get('search_term') or request.args.get('has_email') or request.args.get('has_phone') or request.args.get('has_address') %}
                         검색 조건에 맞는 고객이 없습니다.
                     {% else %}
-                        고객이 없습니다.
+                        등록된 고객이 없습니다.
                     {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+                </h3>
+                <p class="text-sm text-gray-500">새로운 고객을 추가하거나 검색 조건을 변경해 보세요.</p>
+                <div class="mt-6">
+                    <a href="{{ url_for('customer.create_customer_page') }}"
+                       class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-plus mr-2"></i>
+                        새 고객 추가
+                    </a>
+                </div>
+            </div>
+        {% endif %}
     </div>
 
     <!-- 페이지네이션 -->

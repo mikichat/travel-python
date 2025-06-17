@@ -10,10 +10,24 @@ class Ticketing:
         self.flight_type = flight_type
         self.ticketing_status = ticketing_status
         self.ticket_code = ticket_code
-        self.passport_attachment_path = passport_attachment_path
         self.memo = memo
         self.created_at = created_at
         self.updated_at = updated_at
+        # 콤마로 구분된 문자열을 리스트로 변환
+        self._passport_attachment_paths = passport_attachment_path.split(',') if passport_attachment_path else []
+
+    @property
+    def passport_attachment_paths(self):
+        return self._passport_attachment_paths
+
+    @passport_attachment_paths.setter
+    def passport_attachment_paths(self, paths):
+        if isinstance(paths, list):
+            self._passport_attachment_paths = paths
+        elif isinstance(paths, str):
+            self._passport_attachment_paths = paths.split(',') if paths else []
+        else:
+            self._passport_attachment_paths = []
 
     @staticmethod
     def get_all():
@@ -64,17 +78,20 @@ class Ticketing:
     def save(self):
         conn = get_db_connection()
         cursor = conn.cursor()
+        # 리스트를 콤마로 구분된 문자열로 변환하여 DB에 저장
+        db_passport_paths = ','.join(self.passport_attachment_paths)
+
         if self.id:
             cursor.execute("""
                 UPDATE ticketing
                 SET airline_type = ?, flight_type = ?, ticketing_status = ?, ticket_code = ?, passport_attachment_path = ?, memo = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-            """, (self.airline_type, self.flight_type, self.ticketing_status, self.ticket_code, self.passport_attachment_path, self.memo, self.id))
+            """, (self.airline_type, self.flight_type, self.ticketing_status, self.ticket_code, db_passport_paths, self.memo, self.id))
         else:
             cursor.execute("""
                 INSERT INTO ticketing (airline_type, flight_type, ticketing_status, ticket_code, passport_attachment_path, memo, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            """, (self.airline_type, self.flight_type, self.ticketing_status, self.ticket_code, self.passport_attachment_path, self.memo))
+            """, (self.airline_type, self.flight_type, self.ticketing_status, self.ticket_code, db_passport_paths, self.memo))
             self.id = cursor.lastrowid
         conn.commit()
         conn.close()
@@ -83,6 +100,13 @@ class Ticketing:
     def delete(ticketing_id):
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM ticketing WHERE id = ?", (ticketing_id,))
+        # 파일 삭제를 위해 기존 경로를 먼저 조회
+        cursor.execute("SELECT passport_attachment_path FROM ticketing WHERE id = ?", (ticketing_id,))
+        row = cursor.fetchone()
+        
+        conn.execute("DELETE FROM ticketing WHERE id = ?", (ticketing_id,))
         conn.commit()
-        conn.close() 
+        conn.close()
+        
+        # 삭제할 파일 경로 리스트 반환
+        return row[0].split(',') if row and row[0] else [] 
