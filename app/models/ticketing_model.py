@@ -25,6 +25,32 @@ class Ticketing:
         return ticketing_entries
 
     @staticmethod
+    def search(airline_type=None, flight_type=None, ticketing_status=None, ticket_code=None):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = "SELECT * FROM ticketing WHERE 1=1"
+        params = []
+
+        if airline_type:
+            query += " AND airline_type LIKE ?"
+            params.append(f'%{airline_type}%')
+        if flight_type:
+            query += " AND flight_type LIKE ?"
+            params.append(f'%{flight_type}%')
+        if ticketing_status:
+            query += " AND ticketing_status = ?"
+            params.append(ticketing_status)
+        if ticket_code:
+            query += " AND ticket_code LIKE ?"
+            params.append(f'%{ticket_code}%')
+
+        query += " ORDER BY created_at DESC"
+        cursor.execute(query, tuple(params))
+        ticketing_entries = [Ticketing(*row) for row in cursor.fetchall()]
+        conn.close()
+        return ticketing_entries
+
+    @staticmethod
     def get_by_id(ticketing_id):
         conn = get_db_connection()
         cursor = conn.cursor()

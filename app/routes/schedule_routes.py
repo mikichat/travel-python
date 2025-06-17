@@ -155,7 +155,7 @@ def create_schedule():
         memo = data.get('memo', '')
 
         if not title or not start_date or not end_date or not destination:
-            raise APIError('제목, 시작일, 종료일, 목적지는 필수입니다.', 400)
+            raise APIError('제목, 출발일, 도착일, 목적지는 필수입니다.', 400)
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -233,7 +233,7 @@ def update_schedule(schedule_id):
         memo = data.get('memo', '')
 
         if not title or not start_date or not end_date or not destination:
-            raise APIError('제목, 시작일, 종료일, 목적지는 필수입니다.', 400)
+            raise APIError('제목, 출발일, 도착일, 목적지는 필수입니다.', 400)
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -257,10 +257,10 @@ def update_schedule(schedule_id):
             changes.append(f"설명: {old_schedule['description']} → {description}")
             log_schedule_change(schedule_id, 'UPDATE', 'description', old_schedule['description'], description, 'admin')
         if old_schedule['start_date'] != start_date:
-            changes.append(f"시작일: {old_schedule['start_date']} → {start_date}")
+            changes.append(f"출발일: {old_schedule['start_date']} → {start_date}")
             log_schedule_change(schedule_id, 'UPDATE', 'start_date', old_schedule['start_date'], start_date, 'admin')
         if old_schedule['end_date'] != end_date:
-            changes.append(f"종료일: {old_schedule['end_date']} → {end_date}")
+            changes.append(f"도착일: {old_schedule['end_date']} → {end_date}")
             log_schedule_change(schedule_id, 'UPDATE', 'end_date', old_schedule['end_date'], end_date, 'admin')
         if old_schedule['destination'] != destination:
             changes.append(f"목적지: {old_schedule['destination']} → {destination}")
@@ -406,7 +406,7 @@ def export_schedules_csv():
         conn.close()
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['제목', '시작일', '종료일', '목적지', '가격', '최대인원', '상태', '생성일', '수정일'])
+        writer.writerow(['제목', '출발일', '도착일', '목적지', '가격', '최대인원', '상태', '생성일', '수정일'])
         for schedule in schedules:
             writer.writerow([
                 schedule['title'],
@@ -518,9 +518,9 @@ def create_schedule_page():
         if not title:
             errors['title'] = '일정 제목은 필수입니다.'
         if not start_date:
-            errors['start_date'] = '시작일은 필수입니다.'
+            errors['start_date'] = '출발일은 필수입니다.'
         if not end_date:
-            errors['end_date'] = '종료일은 필수입니다.'
+            errors['end_date'] = '도착일은 필수입니다.'
         if not destination:
             errors['destination'] = '목적지는 필수입니다.'
 
@@ -605,9 +605,9 @@ def edit_schedule_page(schedule_id):
         if not title:
             errors['title'] = '일정 제목은 필수입니다.'
         if not start_date:
-            errors['start_date'] = '시작일은 필수입니다.'
+            errors['start_date'] = '출발일은 필수입니다.'
         if not end_date:
-            errors['end_date'] = '종료일은 필수입니다.'
+            errors['end_date'] = '도착일은 필수입니다.'
         if not destination:
             errors['destination'] = '목적지는 필수입니다.'
 
@@ -635,10 +635,10 @@ def edit_schedule_page(schedule_id):
                 changes.append(f"설명: {schedule['description']} → {description}")
                 log_schedule_change(schedule_id, 'UPDATE', 'description', schedule['description'], description, 'admin')
             if schedule['start_date'] != start_date:
-                changes.append(f"시작일: {schedule['start_date']} → {start_date}")
+                changes.append(f"출발일: {schedule['start_date']} → {start_date}")
                 log_schedule_change(schedule_id, 'UPDATE', 'start_date', schedule['start_date'], start_date, 'admin')
             if schedule['end_date'] != end_date:
-                changes.append(f"종료일: {schedule['end_date']} → {end_date}")
+                changes.append(f"도착일: {schedule['end_date']} → {end_date}")
                 log_schedule_change(schedule_id, 'UPDATE', 'end_date', schedule['end_date'], end_date, 'admin')
             if schedule['destination'] != destination:
                 changes.append(f"목적지: {schedule['destination']} → {destination}")

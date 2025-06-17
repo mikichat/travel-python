@@ -127,7 +127,7 @@ def export_schedules_to_excel():
         
         # DataFrame 생성
         df = pd.DataFrame(schedules, columns=[
-            'ID', '제목', '설명', '목적지', '시작일', '종료일', 
+            'ID', '제목', '설명', '목적지', '출발일', '도착일', 
             '가격', '수용인원', '상태', '생성일', '수정일'
         ])
         
@@ -150,7 +150,7 @@ def import_schedules_from_excel(file_content):
         df = pd.read_excel(io.BytesIO(file_content))
         
         # 필수 컬럼 확인
-        required_columns = ['제목', '목적지', '시작일', '종료일']
+        required_columns = ['제목', '목적지', '출발일', '도착일']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(f"필수 컬럼이 누락되었습니다: {missing_columns}")
@@ -171,8 +171,8 @@ def import_schedules_from_excel(file_content):
                     continue
                 
                 # 날짜 형식 변환
-                start_date = pd.to_datetime(row['시작일']).strftime('%Y-%m-%d')
-                end_date = pd.to_datetime(row['종료일']).strftime('%Y-%m-%d')
+                start_date = pd.to_datetime(row['출발일']).strftime('%Y-%m-%d')
+                end_date = pd.to_datetime(row['도착일']).strftime('%Y-%m-%d')
                 
                 # 일정 추가
                 cursor.execute("""

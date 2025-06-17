@@ -102,7 +102,7 @@
                     </div>
 
                     <div>
-                        <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">시작일 *</label>
+                        <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">출발일 *</label>
                         <input type="date" name="start_date" id="start_date" 
                                value="{{ request.form.get('start_date', schedule.start_date.split('T')[0] if schedule.start_date else '') }}"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
@@ -112,7 +112,7 @@
                     </div>
 
                     <div>
-                        <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">종료일 *</label>
+                        <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">도착일 *</label>
                         <input type="date" name="end_date" id="end_date" 
                                value="{{ request.form.get('end_date', schedule.end_date.split('T')[0] if schedule.end_date else '') }}"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
