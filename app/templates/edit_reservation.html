@@ -120,9 +120,15 @@
                         <label for="status" class="block text-sm font-medium text-gray-700 mb-2">예약 상태</label>
                         <select id="status" name="status" required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="Pending" {% if (request.form.get('status') and request.form.get('status') == 'Pending') or (not request.form.get('status') and reservation.status == 'Pending') %}selected{% endif %}>대기</option>
-                            <option value="Confirmed" {% if (request.form.get('status') and request.form.get('status') == 'Confirmed') or (not request.form.get('status') and reservation.status == 'Confirmed') %}selected{% endif %}>확정</option>
-                            <option value="Cancelled" {% if (request.form.get('status') and request.form.get('status') == 'Cancelled') or (not request.form.get('status') and reservation.status == 'Cancelled') %}selected{% endif %}>취소</option>
+                            <option value="REQUESTED" {% if (request.form.get('status') and request.form.get('status') == 'REQUESTED') or (not request.form.get('status') and reservation.status == 'REQUESTED') %}selected{% endif %}>1. 예약 요청 - 고객상담</option>
+                            <option value="IN_PROGRESS" {% if (request.form.get('status') and request.form.get('status') == 'IN_PROGRESS') or (not request.form.get('status') and reservation.status == 'IN_PROGRESS') %}selected{% endif %}>2. 진행 확인 - 담당자와 협의</option>
+                            <option value="PENDING_DEPOSIT" {% if (request.form.get('status') and request.form.get('status') == 'PENDING_DEPOSIT') or (not request.form.get('status') and reservation.status == 'PENDING_DEPOSIT') %}selected{% endif %}>3. 대기 예약 - 입금 전</option>
+                            <option value="CONTRACT_CONFIRMED" {% if (request.form.get('status') and request.form.get('status') == 'CONTRACT_CONFIRMED') or (not request.form.get('status') and reservation.status == 'CONTRACT_CONFIRMED') %}selected{% endif %}>4. 계약 확정 - 계약금만, 잔금 (미수)</option>
+                            <option value="FULLY_PAID" {% if (request.form.get('status') and request.form.get('status') == 'FULLY_PAID') or (not request.form.get('status') and reservation.status == 'FULLY_PAID') %}selected{% endif %}>5. 완납 서비스 - 체크리스트</option>
+                            <option value="COMPLETED" {% if (request.form.get('status') and request.form.get('status') == 'COMPLETED') or (not request.form.get('status') and reservation.status == 'COMPLETED') %}selected{% endif %}>6. 완료 도착</option>
+                            <option value="VIP_CUSTOMER" {% if (request.form.get('status') and request.form.get('status') == 'VIP_CUSTOMER') or (not request.form.get('status') and reservation.status == 'VIP_CUSTOMER') %}selected{% endif %}>7. VIP 고객 - 재구매는 (V.V.IP 고객)</option>
+                            <option value="COMPLAINT" {% if (request.form.get('status') and request.form.get('status') == 'COMPLAINT') or (not request.form.get('status') and reservation.status == 'COMPLAINT') %}selected{% endif %}>8. 불만</option>
+                            <option value="PROCESSED" {% if (request.form.get('status') and request.form.get('status') == 'PROCESSED') or (not request.form.get('status') and reservation.status == 'PROCESSED') %}selected{% endif %}>9. 처리완료</option>
                         </select>
                         {% if errors and errors.status %}
                         <p class="mt-1 text-sm text-red-600">{{ errors.status }}</p>

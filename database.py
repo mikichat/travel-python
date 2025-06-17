@@ -74,7 +74,7 @@ def initialize_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_id INTEGER NOT NULL,
             schedule_id INTEGER NOT NULL,
-            status TEXT NOT NULL DEFAULT 'Pending',
+            status TEXT NOT NULL DEFAULT 'REQUESTED',
             booking_date TEXT NOT NULL,
             number_of_people INTEGER NOT NULL,
             total_price REAL NOT NULL,

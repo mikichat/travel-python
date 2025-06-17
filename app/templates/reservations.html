@@ -107,10 +107,15 @@
                             name="status" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         <option value="">전체</option>
-                        <option value="pending" {{ 'selected' if request.args.get('status') == 'pending' else '' }}>대기중</option>
-                        <option value="confirmed" {{ 'selected' if request.args.get('status') == 'confirmed' else '' }}>확정</option>
-                        <option value="cancelled" {{ 'selected' if request.args.get('status') == 'cancelled' else '' }}>취소</option>
-                        <option value="completed" {{ 'selected' if request.args.get('status') == 'completed' else '' }}>완료</option>
+                        <option value="REQUESTED" {{ 'selected' if request.args.get('status') == 'REQUESTED' else '' }}>1. 예약 요청 - 고객상담</option>
+                        <option value="IN_PROGRESS" {{ 'selected' if request.args.get('status') == 'IN_PROGRESS' else '' }}>2. 진행 확인 - 담당자와 협의</option>
+                        <option value="PENDING_DEPOSIT" {{ 'selected' if request.args.get('status') == 'PENDING_DEPOSIT' else '' }}>3. 대기 예약 - 입금 전</option>
+                        <option value="CONTRACT_CONFIRMED" {{ 'selected' if request.args.get('status') == 'CONTRACT_CONFIRMED' else '' }}>4. 계약 확정 - 계약금만, 잔금 (미수)</option>
+                        <option value="FULLY_PAID" {{ 'selected' if request.args.get('status') == 'FULLY_PAID' else '' }}>5. 완납 서비스 - 체크리스트</option>
+                        <option value="COMPLETED" {{ 'selected' if request.args.get('status') == 'COMPLETED' else '' }}>6. 완료 도착</option>
+                        <option value="VIP_CUSTOMER" {{ 'selected' if request.args.get('status') == 'VIP_CUSTOMER' else '' }}>7. VIP 고객 - 재구매는 (V.V.IP 고객)</option>
+                        <option value="COMPLAINT" {{ 'selected' if request.args.get('status') == 'COMPLAINT' else '' }}>8. 불만</option>
+                        <option value="PROCESSED" {{ 'selected' if request.args.get('status') == 'PROCESSED' else '' }}>9. 처리완료</option>
                     </select>
                 </div>
 
@@ -122,12 +127,14 @@
                                id="date_from" 
                                name="date_from" 
                                value="{{ request.args.get('date_from', '') }}"
+                               placeholder="YYYY-MM-DD"
                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         <span class="self-center text-gray-500">~</span>
                         <input type="date" 
                                id="date_to" 
                                name="date_to" 
                                value="{{ request.args.get('date_to', '') }}"
+                               placeholder="YYYY-MM-DD"
                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
         </div>

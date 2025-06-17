@@ -151,7 +151,7 @@ def create_reservation():
         data = request.get_json()
         customer_id = data.get('customerId')
         schedule_id = data.get('scheduleId')
-        status = data.get('status', 'Confirmed')
+        status = data.get('status', 'REQUESTED')
         booking_date = data.get('bookingDate', datetime.now().isoformat())
         number_of_people = data.get('numberOfPeople', 1)
         total_price = data.get('totalPrice', 0)
@@ -215,7 +215,7 @@ def get_reservation_by_id(reservation_id):
 def update_reservation(reservation_id):
     try:
         data = request.get_json()
-        status = data.get('status', 'Confirmed')
+        status = data.get('status', 'REQUESTED')
         booking_date = data.get('bookingDate')
         number_of_people = data.get('numberOfPeople', 1)
         total_price = data.get('totalPrice', 0)
