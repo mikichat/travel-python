@@ -12,6 +12,19 @@ import sqlite3
 
 reservation_bp = Blueprint('reservation', __name__)
 
+# 예약 상태 순서 정의
+STATUS_ORDER = {
+    "REQUESTED": 1,
+    "IN_PROGRESS": 2,
+    "PENDING_DEPOSIT": 3,
+    "CONTRACT_CONFIRMED": 4,
+    "FULLY_PAID": 5,
+    "COMPLETED": 6,
+    "VIP_CUSTOMER": 7,
+    "COMPLAINT": 8,
+    "PROCESSED": 9
+}
+
 # 필터 등록
 @reservation_bp.app_template_filter('format_date')
 def format_date_filter(date_str):
@@ -791,6 +804,22 @@ def edit_reservation_page(reservation_id):
                 changes.append(f"일정ID: {reservation['schedule_id']} → {schedule_id}")
                 log_reservation_change(reservation_id, 'UPDATE', 'schedule_id', str(reservation['schedule_id']), str(schedule_id), 'admin')
             if reservation['status'] != status:
+                # 예약 상태 변경 로직 추가
+                current_status_order = STATUS_ORDER.get(reservation['status'])
+                new_status_order = STATUS_ORDER.get(status)
+
+                if current_status_order is None or new_status_order is None:
+                    flash('유효하지 않은 예약 상태입니다.', 'error')
+                    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors)
+                
+                # VIP_CUSTOMER, COMPLAINT, PROCESSED 상태는 특별히 처리 (모든 상태에서 이동 가능하도록)
+                if status in ["VIP_CUSTOMER", "COMPLAINT", "PROCESSED"]:
+                    # 특별 상태로의 변경은 항상 허용
+                    pass
+                elif abs(new_status_order - current_status_order) > 1:
+                    flash('예약 상태는 한 단계씩만 변경할 수 있습니다.', 'error')
+                    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors)
+
                 changes.append(f"상태: {reservation['status']} → {status}")
                 log_reservation_change(reservation_id, 'UPDATE', 'status', reservation['status'], status, 'admin')
             if reservation['booking_date'] != booking_date:
