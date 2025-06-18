@@ -418,9 +418,90 @@ def import_reservations_excel():
         flash('엑셀 파일 처리 중 오류가 발생했습니다.', 'error')
         return redirect(request.url)
 
+@reservation_bp.route('/api/customers_paginated', methods=['GET'])
+@jwt_required(current_app)
+def get_paginated_customers():
+    try:
+        offset = request.args.get('offset', type=int, default=0)
+        limit = request.args.get('limit', type=int, default=10)
+        search_term = request.args.get('search', type=str, default='').strip()
+        search_id = request.args.get('search_id', type=int)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = 'SELECT id, name, phone FROM customers'
+        params = []
+
+        if search_id:
+            query += ' WHERE id = ?'
+            params.append(search_id)
+        elif search_term:
+            query += ' WHERE name LIKE ? OR phone LIKE ?'
+            params.append(f'%{search_term}%')
+            params.append(f'%{search_term}%')
+
+        query += ' ORDER BY name LIMIT ? OFFSET ?'
+        params.append(limit)
+        params.append(offset)
+
+        cursor.execute(query, params)
+        customers = cursor.fetchall()
+        conn.close()
+
+        customers_list = [dict(c) for c in customers]
+        return jsonify(customers_list)
+    except Exception as e:
+        print(f'고객 페이지네이션 조회 오류: {e}')
+        return jsonify({'error': '고객 목록을 불러오는 중 오류가 발생했습니다.'}), 500
+
+@reservation_bp.route('/api/schedules_paginated', methods=['GET'])
+@jwt_required(current_app)
+def get_paginated_schedules():
+    try:
+        offset = request.args.get('offset', type=int, default=0)
+        limit = request.args.get('limit', type=int, default=10)
+        search_term = request.args.get('search', type=str, default='').strip()
+        search_id = request.args.get('search_id', type=int)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = 'SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active"'
+        params = []
+
+        if search_id:
+            query += ' AND id = ?'
+            params.append(search_id)
+        elif search_term:
+            query += ' AND (title LIKE ?)'
+            params.append(f'%{search_term}%')
+
+        query += ' ORDER BY start_date LIMIT ? OFFSET ?'
+        params.append(limit)
+        params.append(offset)
+
+        cursor.execute(query, params)
+        schedules = cursor.fetchall()
+        conn.close()
+
+        schedules_list = []
+        for s in schedules:
+            s_dict = dict(s)
+            s_dict['start_date'] = s_dict['start_date'].split('T')[0]
+            s_dict['end_date'] = s_dict['end_date'].split('T')[0]
+            schedules_list.append(s_dict)
+        return jsonify(schedules_list)
+    except Exception as e:
+        print(f'일정 페이지네이션 조회 오류: {e}')
+        return jsonify({'error': '일정 목록을 불러오는 중 오류가 발생했습니다.'}), 500
+
 @reservation_bp.route('/create', methods=['GET', 'POST'])
 @jwt_required(current_app)
 def create_reservation_page():
+    # 오늘 날짜를 기본값으로 설정하기 위해 미리 계산
+    today_date = datetime.now().isoformat().split('T')[0]
+
     if request.method == 'POST':
         # 폼 데이터 가져오기
         customer_id = request.form.get('customer_id')
@@ -437,26 +518,27 @@ def create_reservation_page():
             errors['customer_id'] = '고객을 선택해주세요.'
         if not schedule_id:
             errors['schedule_id'] = '일정을 선택해주세요.'
-        if not booking_date:
-            errors['booking_date'] = '예약일을 입력해주세요.'
+        # booking_date는 이제 기본값이 설정되므로, 여기서는 검증을 제거하거나 필요에 따라 조정
+        # if not booking_date:
+        #     errors['booking_date'] = '예약일을 입력해주세요.'
 
         if errors:
             # 고객과 일정 목록을 가져와서 템플릿에 전달
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')
+            cursor.execute('SELECT id, name, phone FROM customers ORDER BY name LIMIT 30 OFFSET 0')
             customers = cursor.fetchall()
-            cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date')
+            cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date LIMIT 30 OFFSET 0')
             schedules = cursor.fetchall()
             conn.close()
-            return render_template('create_reservation.html', customers=customers, schedules=schedules, errors=errors, error='필수 정보를 모두 입력해주세요.')
+            return render_template('create_reservation.html', customers=customers, schedules=schedules, errors=errors, error='필수 정보를 모두 입력해주세요.', today_date=today_date)
 
         # 숫자 변환
         try:
             number_of_people = int(number_of_people) if number_of_people else 1
             total_price = float(total_price) if total_price else 0
         except ValueError:
-            return render_template('create_reservation.html', error='인원수와 가격은 숫자로 입력해주세요.')
+            return render_template('create_reservation.html', error='인원수와 가격은 숫자로 입력해주세요.', today_date=today_date)
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -473,18 +555,19 @@ def create_reservation_page():
         except Exception as e:
             conn.close()
             print(f'예약 등록 오류: {e}')
-            return render_template('create_reservation.html', error='예약 등록 중 오류가 발생했습니다.')
+            return render_template('create_reservation.html', error='예약 등록 중 오류가 발생했습니다.', today_date=today_date)
     
     # GET 요청 시 고객과 일정 목록을 가져와서 템플릿에 전달
+    # 초기 30개 고객/일정만 로드 (프론트엔드에서 추가 로드)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')
+    cursor.execute('SELECT id, name, phone FROM customers ORDER BY name LIMIT 30 OFFSET 0')
     customers = cursor.fetchall()
-    cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date')
+    cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date LIMIT 30 OFFSET 0')
     schedules = cursor.fetchall()
     conn.close()
     
-    return render_template('create_reservation.html', customers=customers, schedules=schedules)
+    return render_template('create_reservation.html', customers=customers, schedules=schedules, today_date=today_date)
 
 @reservation_bp.route('/edit/<int:reservation_id>', methods=['GET', 'POST'])
 @jwt_required(current_app)
@@ -498,7 +581,7 @@ def edit_reservation_page(reservation_id):
         conn.close()
         return render_template('edit_reservation.html', reservation=None, error='예약을 찾을 수 없습니다.')
     
-    # 고객과 일정 목록을 가져오기
+    # 고객과 일정 목록을 가져오기 (edit 페이지는 모든 목록을 가져옴)
     cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')
     customers = cursor.fetchall()
     cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date')
