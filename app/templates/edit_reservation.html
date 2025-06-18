@@ -86,14 +86,19 @@
                     <!-- 고객 정보 -->
                     <div class="md:col-span-2">
                         <label for="customer_id" class="block text-sm font-medium text-gray-700 mb-2">고객 *</label>
-                        <select id="customer_id" name="customer_id" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            {% for customer in customers %}
-                            <option value="{{ customer.id }}" {% if (request.form.get('customer_id') and request.form.get('customer_id')|int == customer.id) or (not request.form.get('customer_id') and reservation.customer_id == customer.id) %}selected{% endif %}>
-                                {{ customer.name }} ({{ customer.phone }})
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <div class="relative">
+                            <input type="text" id="customer_display" placeholder="고객을 선택하거나 검색하세요" readonly
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 cursor-pointer">
+                            <input type="hidden" id="customer_id" name="customer_id" value="{{ reservation.customer_id }}" required>
+                            <div id="customer_dropdown" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg hidden">
+                                <input type="text" id="customer_search" placeholder="고객 검색..."
+                                       class="w-full px-3 py-2 border-b border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <div id="customer_options_list" class="max-h-56 overflow-y-auto">
+                                    <!-- 고객 목록이 여기에 동적으로 로드됩니다 -->
+                                    <div class="px-3 py-2 text-gray-500">고객을 로드 중...</div>
+                                </div>
+                            </div>
+                        </div>
                         {% if errors and errors.customer_id %}
                         <p class="mt-1 text-sm text-red-600">{{ errors.customer_id }}</p>
                         {% endif %}
@@ -102,14 +107,19 @@
                     <!-- 일정 정보 -->
                     <div class="md:col-span-2">
                         <label for="schedule_id" class="block text-sm font-medium text-gray-700 mb-2">일정 *</label>
-                        <select id="schedule_id" name="schedule_id" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            {% for schedule in schedules %}
-                            <option value="{{ schedule.id }}" {% if (request.form.get('schedule_id') and request.form.get('schedule_id')|int == schedule.id) or (not request.form.get('schedule_id') and reservation.schedule_id == schedule.id) %}selected{% endif %}>
-                                {{ schedule.title }} ({{ schedule.start_date.split('T')[0] }} ~ {{ schedule.end_date.split('T')[0] }})
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <div class="relative">
+                            <input type="text" id="schedule_display" placeholder="일정을 선택하거나 검색하세요" readonly
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 cursor-pointer">
+                            <input type="hidden" id="schedule_id" name="schedule_id" value="{{ reservation.schedule_id }}" required>
+                            <div id="schedule_dropdown" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg hidden">
+                                <input type="text" id="schedule_search" placeholder="일정 검색..."
+                                       class="w-full px-3 py-2 border-b border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <div id="schedule_options_list" class="max-h-56 overflow-y-auto">
+                                    <!-- 일정 목록이 여기에 동적으로 로드됩니다 -->
+                                    <div class="px-3 py-2 text-gray-500">일정을 로드 중...</div>
+                                </div>
+                            </div>
+                        </div>
                         {% if errors and errors.schedule_id %}
                         <p class="mt-1 text-sm text-red-600">{{ errors.schedule_id }}</p>
                         {% endif %}
@@ -198,4 +208,216 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 고객 드롭다운 요소
+        const customerDisplay = document.getElementById('customer_display');
+        const customerHiddenInput = document.getElementById('customer_id');
+        const customerDropdown = document.getElementById('customer_dropdown');
+        const customerSearch = document.getElementById('customer_search');
+        const customerOptionsList = document.getElementById('customer_options_list');
+        
+        let customerOffset = 0;
+        const customerLimit = 30;
+        let customerLoading = false;
+
+        // 일정 드롭다운 요소
+        const scheduleDisplay = document.getElementById('schedule_display');
+        const scheduleHiddenInput = document.getElementById('schedule_id');
+        const scheduleDropdown = document.getElementById('schedule_dropdown');
+        const scheduleSearch = document.getElementById('schedule_search');
+        const scheduleOptionsList = document.getElementById('schedule_options_list');
+
+        let scheduleOffset = 0;
+        const scheduleLimit = 30;
+        let scheduleLoading = false;
+
+        // 고객 로딩 함수
+        async function loadCustomers(offset, searchTerm = '') {
+            if (customerLoading) {
+                return;
+            }
+            customerLoading = true;
+            
+            try {
+                const response = await fetch(`/reservations/api/customers_paginated?offset=${offset}&limit=${customerLimit}&search=${searchTerm}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const customers = await response.json();
+
+                if (offset === 0) {
+                    customerOptionsList.innerHTML = ''; 
+                }
+
+                if (customers.length === 0 && offset === 0) {
+                    customerOptionsList.innerHTML = '<div class="px-3 py-2 text-gray-500">검색 결과가 없습니다.</div>';
+                }
+
+                customers.forEach(customer => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+                    optionDiv.textContent = `${customer.name} (${customer.phone})`;
+                    optionDiv.dataset.value = customer.id;
+                    optionDiv.dataset.text = `${customer.name} (${customer.phone})`;
+
+                    optionDiv.addEventListener('click', function() {
+                        customerHiddenInput.value = this.dataset.value;
+                        customerDisplay.value = this.dataset.text;
+                        customerDropdown.classList.add('hidden');
+                    });
+                    customerOptionsList.appendChild(optionDiv);
+                });
+                customerOffset += customers.length; 
+
+            } catch (error) {
+                console.error('고객 로딩 오류:', error);
+                customerOptionsList.innerHTML = '<div class="px-3 py-2 text-red-500">고객 로드 중 오류가 발생했습니다.</div>';
+            } finally {
+                customerLoading = false;
+            }
+        }
+
+        // 일정 로딩 함수
+        async function loadSchedules(offset, searchTerm = '') {
+            if (scheduleLoading) {
+                return;
+            }
+            scheduleLoading = true;
+            
+            try {
+                const response = await fetch(`/reservations/api/schedules_paginated?offset=${offset}&limit=${scheduleLimit}&search=${searchTerm}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const schedules = await response.json();
+
+                if (offset === 0) {
+                    scheduleOptionsList.innerHTML = '';
+                }
+
+                if (schedules.length === 0 && offset === 0) {
+                    scheduleOptionsList.innerHTML = '<div class="px-3 py-2 text-gray-500">검색 결과가 없습니다.</div>';
+                }
+
+                schedules.forEach(schedule => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+                    optionDiv.textContent = `${schedule.title} (${schedule.start_date} ~ ${schedule.end_date})`;
+                    optionDiv.dataset.value = schedule.id;
+                    optionDiv.dataset.text = `${schedule.title} (${schedule.start_date} ~ ${schedule.end_date})`;
+
+                    optionDiv.addEventListener('click', function() {
+                        scheduleHiddenInput.value = this.dataset.value;
+                        scheduleDisplay.value = this.dataset.text;
+                        scheduleDropdown.classList.add('hidden');
+                    });
+                    scheduleOptionsList.appendChild(optionDiv);
+                });
+                scheduleOffset += schedules.length;
+
+            } catch (error) {
+                console.error('일정 로딩 오류:', error);
+                scheduleOptionsList.innerHTML = '<div class="px-3 py-2 text-red-500">일정 로드 중 오류가 발생했습니다.</div>';
+            } finally {
+                scheduleLoading = false;
+            }
+        }
+
+        // --- 드롭다운 토글 및 검색 기능 --- //
+
+        // 고객 드롭다운 토글
+        customerDisplay.addEventListener('click', function() {
+            customerDropdown.classList.toggle('hidden');
+            customerSearch.focus(); 
+            if (!customerDropdown.classList.contains('hidden') && customerOptionsList.children.length === 0) {
+                loadCustomers(0, customerSearch.value);
+            }
+        });
+
+        // 일정 드롭다운 토글
+        scheduleDisplay.addEventListener('click', function() {
+            scheduleDropdown.classList.toggle('hidden');
+            scheduleSearch.focus(); 
+            if (!scheduleDropdown.classList.contains('hidden') && scheduleOptionsList.children.length === 0) {
+                loadSchedules(0, scheduleSearch.value);
+            }
+        });
+
+        // 외부 클릭 시 드롭다운 닫기
+        document.addEventListener('click', function(event) {
+            if (!customerDropdown.contains(event.target) && !customerDisplay.contains(event.target) && !customerSearch.contains(event.target)) {
+                customerDropdown.classList.add('hidden');
+            }
+            if (!scheduleDropdown.contains(event.target) && !scheduleDisplay.contains(event.target) && !scheduleSearch.contains(event.target)) {
+                scheduleDropdown.classList.add('hidden');
+            }
+        });
+
+        // 검색 필드 이벤트 리스너 (디바운스 적용)
+        let customerSearchTimeout;
+        customerSearch.addEventListener('input', function() {
+            clearTimeout(customerSearchTimeout);
+            customerSearchTimeout = setTimeout(() => {
+                customerOffset = 0; 
+                loadCustomers(customerOffset, customerSearch.value);
+            }, 300); 
+        });
+
+        let scheduleSearchTimeout;
+        scheduleSearch.addEventListener('input', function() {
+            clearTimeout(scheduleSearchTimeout);
+            scheduleSearchTimeout = setTimeout(() => {
+                scheduleOffset = 0; 
+                loadSchedules(scheduleOffset, scheduleSearch.value);
+            }, 300); 
+        });
+
+        // 스크롤 이벤트 리스너 (무한 스크롤)
+        customerOptionsList.addEventListener('scroll', function() {
+            const isAtBottom = this.scrollTop + this.clientHeight >= this.scrollHeight - 5; 
+            if (isAtBottom) {
+                loadCustomers(customerOffset, customerSearch.value);
+            }
+        });
+
+        scheduleOptionsList.addEventListener('scroll', function() {
+            const isAtBottom = this.scrollTop + this.clientHeight >= this.scrollHeight - 5; 
+            if (isAtBottom) {
+                loadSchedules(scheduleOffset, scheduleSearch.value);
+            }
+        });
+
+        // 폼 제출 후 선택된 값 유지를 위해 초기 설정
+        const initialCustomerId = customerHiddenInput.value; 
+        const initialScheduleId = scheduleHiddenInput.value; 
+
+        // 초기 로드 시 기존 선택된 항목 표시
+        async function setInitialSelections() {
+            if (initialCustomerId) {
+                const response = await fetch(`/reservations/api/customers_paginated?search_id=${initialCustomerId}`);
+                if (response.ok) {
+                    const customers = await response.json();
+                    if (customers.length > 0) {
+                        customerDisplay.value = `${customers[0].name} (${customers[0].phone})`;
+                    }
+                }
+            }
+            if (initialScheduleId) {
+                const response = await fetch(`/reservations/api/schedules_paginated?search_id=${initialScheduleId}`);
+                 if (response.ok) {
+                    const schedules = await response.json();
+                    if (schedules.length > 0) {
+                        scheduleDisplay.value = `${schedules[0].title} (${schedules[0].start_date} ~ ${schedules[0].end_date})`;
+                    }
+                }
+            }
+        }
+        
+        setInitialSelections();
+    });
+</script>
 {% endblock %}
