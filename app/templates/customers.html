@@ -301,7 +301,7 @@
         {% endfor %}
 
         <!-- "다음 10페이지" 버튼 -->
-        {% set next_block_start = ((page - 1) // 10) * 10+1 %}
+        {% set next_block_start = current_block_start + 10 %}
         {% if next_block_start <= total_pages %}
         <a href="{{ url_for('customer.customers_page',
                        page=next_block_start,

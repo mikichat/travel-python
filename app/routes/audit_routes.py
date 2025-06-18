@@ -14,7 +14,7 @@ def audit_logs_page():
     """변경 로그 페이지"""
     try:
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 30, type=int) # 페이지당 항목 수, 기본값 30
+        per_page = request.args.get('per_page', 10, type=int) # 페이지당 항목 수, 기본값 30
         offset = (page - 1) * per_page
         limit = per_page
         
@@ -56,7 +56,7 @@ def get_paginated_audit_logs_api():
     """페이지네이션 및 검색을 지원하는 변경 로그 API"""
     try:
         offset = request.args.get('offset', type=int, default=0)
-        limit = request.args.get('limit', type=int, default=30)
+        limit = request.args.get('limit', type=int, default=10)
         
         table_name = request.args.get('table_name', '')
         record_id = request.args.get('record_id', type=int)

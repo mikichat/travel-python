@@ -34,7 +34,7 @@ def customers_page():
         has_phone = request.args.get('has_phone') == 'true'
         has_address = request.args.get('has_address') == 'true'
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 30, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -129,7 +129,7 @@ def get_paginated_customers_api():
     """페이지네이션 및 검색/정렬을 지원하는 고객 목록 API"""
     try:
         offset = request.args.get('offset', type=int, default=0)
-        limit = request.args.get('limit', type=int, default=30)
+        limit = request.args.get('limit', type=int, default=10)
         search_term = request.args.get('search_term', '').strip()
         sort_by = request.args.get('sort_by', 'created_at')
         sort_order = request.args.get('sort_order', 'desc')

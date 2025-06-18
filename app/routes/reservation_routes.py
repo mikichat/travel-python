@@ -44,7 +44,7 @@ def reservations_page():
         date_from = request.args.get('date_from', '').strip()
         date_to = request.args.get('date_to', '').strip()
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 30, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -174,7 +174,7 @@ def get_paginated_reservations_api():
     """페이지네이션 및 검색/정렬을 지원하는 예약 목록 API"""
     try:
         offset = request.args.get('offset', type=int, default=0)
-        limit = request.args.get('limit', type=int, default=30)
+        limit = request.args.get('limit', type=int, default=10)
         customer_name = request.args.get('customer_name', '').strip()
         schedule_title = request.args.get('schedule_title', '').strip()
         status_filter = request.args.get('status', '').strip()
