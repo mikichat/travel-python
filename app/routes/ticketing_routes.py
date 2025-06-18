@@ -28,7 +28,8 @@ def ticketing_page():
         ticket_code=ticket_code,
         offset=offset,
         limit=per_page,
-        include_total_count=True
+        include_total_count=True,
+        include_deleted=False
     )
     
     total_pages = (total_count + per_page - 1) // per_page
@@ -64,7 +65,8 @@ def get_paginated_ticketing_api():
             ticket_code=ticket_code,
             offset=offset,
             limit=limit,
-            include_total_count=True
+            include_total_count=True,
+            include_deleted=False
         )
 
         # API 응답을 위해 객체를 딕셔너리로 변환
@@ -125,7 +127,11 @@ def create_ticketing():
 def edit_ticketing(ticketing_id):
     ticketing = Ticketing.get_by_id(ticketing_id)
     if not ticketing:
-        flash('발권 정보를 찾을 수 없습니다.', 'danger')
+        flash('발권 정보를 찾을 수 없습니다.', 'error')
+        return redirect(url_for('ticketing.ticketing_page'))
+
+    if ticketing.deleted_at is not None:
+        flash('이미 삭제된 발권 정보입니다. 복원 후 수정해주세요.', 'error')
         return redirect(url_for('ticketing.ticketing_page'))
 
     if request.method == 'POST':
@@ -171,10 +177,9 @@ def edit_ticketing(ticketing_id):
 @ticketing_bp.route('/delete/<int:ticketing_id>', methods=['POST'])
 @jwt_required(current_app)
 def delete_ticketing(ticketing_id):
-    # 모델에서 삭제된 파일 경로 리스트를 반환하도록 변경했으므로, 여기서 파일을 삭제
-    files_to_delete = Ticketing.delete(ticketing_id)
+    files_to_delete = Ticketing.soft_delete(ticketing_id)
+    
     private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
-
     for filename in files_to_delete:
         full_path = os.path.join(private_upload_folder, filename)
         if os.path.exists(full_path):
@@ -183,12 +188,38 @@ def delete_ticketing(ticketing_id):
     flash('발권 정보가 성공적으로 삭제되었습니다.', 'success')
     return redirect(url_for('ticketing.ticketing_page'))
 
+@ticketing_bp.route('/restore/<int:ticketing_id>', methods=['POST'])
+@jwt_required(current_app)
+def restore_ticketing(ticketing_id):
+    try:
+        # 복원할 발권 정보가 존재하는지 확인 (논리적으로 삭제된 항목만)
+        ticketing = Ticketing.get_by_id(ticketing_id, include_deleted=True)
+        if not ticketing or ticketing.deleted_at is None:
+            flash('발권 정보를 찾을 수 없거나 이미 활성 상태입니다.', 'error')
+            return redirect(url_for('ticketing.ticketing_page'))
+
+        # 발권 정보 복원
+        Ticketing.restore(ticketing_id)
+
+        # 감사 로그 기록
+        # log_ticketing_change(ticketing_id, 'RESTORE', 'deleted_at', ticketing.deleted_at, None, 'admin')
+        # 위 코드는 log_ticketing_change 함수에 맞게 수정 필요. 현재는 log_change 직접 호출.
+        from app.utils.audit import log_ticketing_change
+        log_ticketing_change(ticketing_id, 'RESTORE', 'deleted_at', ticketing.deleted_at, None, 'admin')
+
+        flash('발권 정보가 성공적으로 복원되었습니다.', 'success')
+        return redirect(url_for('ticketing.ticketing_page'))
+    except Exception as e:
+        print(f'발권 복원 오류: {e}')
+        flash('발권 복원 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('ticketing.ticketing_page'))
+
 # 안전한 여권 이미지 뷰어 라우트
 @ticketing_bp.route('/passport/<int:ticketing_id>/<string:filename>')
 @jwt_required(current_app)
 def view_passport(ticketing_id, filename):
     ticketing = Ticketing.get_by_id(ticketing_id)
-    if not ticketing or filename not in ticketing.passport_attachment_paths:
+    if not ticketing or filename not in ticketing.passport_attachment_paths or ticketing.deleted_at is not None:
         flash('여권 이미지를 찾을 수 없거나 접근 권한이 없습니다.', 'danger')
         return redirect(url_for('ticketing.ticketing_page'))
 

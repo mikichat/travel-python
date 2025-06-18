@@ -93,7 +93,9 @@ def reservations_page():
             count_params.append(date_to)
 
         if count_conditions:
-            count_query += " WHERE " + " AND ".join(count_conditions)
+            count_query += " WHERE " + " AND ".join(count_conditions) + " AND r.deleted_at IS NULL"
+        else:
+            count_query += " WHERE r.deleted_at IS NULL"
         
         cursor.execute(count_query, count_params)
         total_reservations_count = cursor.fetchone()[0]
@@ -140,7 +142,7 @@ def reservations_page():
         
         # WHERE 절 추가
         if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+            query += " WHERE " + " AND ".join(conditions) + " AND r.deleted_at IS NULL"
         
         # 정렬 및 LIMIT/OFFSET
         query += " ORDER BY r.created_at DESC LIMIT ? OFFSET ?"
@@ -230,7 +232,9 @@ def get_paginated_reservations_api():
             count_params.append(date_to)
 
         if count_conditions:
-            count_query += " WHERE " + " AND ".join(count_conditions)
+            count_query += " WHERE " + " AND ".join(count_conditions) + " AND r.deleted_at IS NULL"
+        else:
+            count_query += " WHERE r.deleted_at IS NULL"
 
         cursor.execute(count_query, count_params)
         total_reservations_count = cursor.fetchone()[0]
@@ -266,7 +270,9 @@ def get_paginated_reservations_api():
             params.append(date_to)
 
         if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+            query += " WHERE " + " AND ".join(conditions) + " AND r.deleted_at IS NULL"
+        else:
+            query += " WHERE r.deleted_at IS NULL"
 
         # 정렬
         valid_sort_fields = ['created_at', 'booking_date', 'total_price', 'customer_name', 'schedule_title', 'status']
@@ -312,10 +318,13 @@ def get_paginated_reservations_api():
 @reservation_bp.route('/api/reservations', methods=['GET'])
 @jwt_required(current_app)
 def get_reservations():
-    """예약 목록 API (기존) - 이제 사용되지 않거나 다른 목적으로 사용될 수 있음"""
-    # 이 API는 이제 사용되지 않거나, 전체 목록이 필요한 경우에만 호출될 수 있습니다.
-    # pagination API를 사용하는 것이 좋습니다.
-    return get_paginated_reservations_api(offset=0, limit=100000) # 더미 값으로 무한대를 대체합니다.
+    """모든 예약 목록을 반환하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM reservations WHERE deleted_at IS NULL ORDER BY created_at DESC')
+    reservations = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(reservations)
 
 @reservation_bp.route('/api/reservations', methods=['POST'])
 @jwt_required(current_app)
@@ -365,23 +374,16 @@ def create_reservation():
 @reservation_bp.route('/api/reservations/<int:reservation_id>', methods=['GET'])
 @jwt_required(current_app)
 def get_reservation_by_id(reservation_id):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM reservations WHERE id = ?', (reservation_id,))
-        reservation = cursor.fetchone()
-        conn.close()
-        if not reservation:
-            raise APIError('예약을 찾을 수 없습니다.', 404)
-        reservation_data = dict(reservation)
-        reservation_data['createdAt'] = reservation_data.pop('created_at')
-        reservation_data['updatedAt'] = reservation_data.pop('updated_at')
-        return jsonify(reservation_data)
-    except APIError:
-        raise
-    except Exception as e:
-        print(f'예약 조회 실패: {e}')
-        raise APIError('예약 조회 중 오류가 발생했습니다.', 500)
+    """단일 예약 정보를 반환하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # deleted_at이 NULL인 (삭제되지 않은) 예약만 조회
+    cursor.execute('SELECT * FROM reservations WHERE id = ? AND deleted_at IS NULL', (reservation_id,))
+    reservation = cursor.fetchone()
+    conn.close()
+    if reservation:
+        return jsonify(dict(reservation))
+    raise APIError('예약을 찾을 수 없습니다.', 404)
 
 @reservation_bp.route('/api/reservations/<int:reservation_id>', methods=['PUT'])
 @jwt_required(current_app)
@@ -452,52 +454,92 @@ def update_reservation(reservation_id):
 @reservation_bp.route('/api/reservations/<int:reservation_id>', methods=['DELETE'])
 @jwt_required(current_app)
 def delete_reservation(reservation_id):
+    """예약을 논리적으로 삭제하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 삭제 전 예약 정보 조회
-        cursor.execute('SELECT customer_id, schedule_id FROM reservations WHERE id = ?', (reservation_id,))
+        # 삭제할 예약이 존재하는지 확인
+        cursor.execute('SELECT id FROM reservations WHERE id = ? AND deleted_at IS NULL', (reservation_id,))
         reservation = cursor.fetchone()
-        customer_id = reservation[0] if reservation else 'Unknown'
-        schedule_id = reservation[1] if reservation else 'Unknown'
+        if not reservation:
+            raise APIError('예약을 찾을 수 없거나 이미 삭제되었습니다.', 404)
         
-        cursor.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
+        # 논리적 삭제 (deleted_at 필드 업데이트)
+        cursor.execute('UPDATE reservations SET deleted_at = ?, updated_at = ? WHERE id = ?', (current_time, current_time, reservation_id))
         conn.commit()
-        
-        if cursor.rowcount == 0:
-            conn.close()
-            raise APIError('예약을 찾을 수 없습니다.', 404)
+
+        log_reservation_change(reservation_id, 'SOFT_DELETE', 'deleted_at', None, current_time, 'admin')
         
         conn.close()
-        return jsonify({'message': '예약이 삭제되었습니다.'})
-    except APIError:
-        raise
+        return jsonify({'message': '예약이 성공적으로 삭제되었습니다.'})
+    except APIError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), e.status_code
     except Exception as e:
+        conn.close()
         print(f'예약 삭제 오류: {e}')
-        raise APIError('예약 삭제 중 오류가 발생했습니다.', 500)
+        return jsonify({'error': '예약 삭제 중 오류가 발생했습니다.'}), 500
 
 @reservation_bp.route('/delete/<int:reservation_id>', methods=['POST'])
 @jwt_required(current_app)
 def delete_reservation_page(reservation_id):
+    """예약을 논리적으로 삭제하고 예약 목록 페이지로 리다이렉트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 삭제 전 예약 정보 조회
-        cursor.execute('SELECT customer_id, schedule_id FROM reservations WHERE id = ?', (reservation_id,))
+        # 삭제할 예약이 존재하는지 확인
+        cursor.execute('SELECT id FROM reservations WHERE id = ? AND deleted_at IS NULL', (reservation_id,))
         reservation = cursor.fetchone()
-        customer_id = reservation[0] if reservation else 'Unknown'
-        schedule_id = reservation[1] if reservation else 'Unknown'
-        
-        cursor.execute('DELETE FROM reservations WHERE id = ?', (reservation_id,))
+        if not reservation:
+            flash('예약을 찾을 수 없거나 이미 삭제되었습니다.', 'error')
+            return redirect(url_for('reservation.reservations_page'))
+
+        # 논리적 삭제 (deleted_at 필드 업데이트)
+        cursor.execute('UPDATE reservations SET deleted_at = ?, updated_at = ? WHERE id = ?', (current_time, current_time, reservation_id))
         conn.commit()
+
+        log_reservation_change(reservation_id, 'SOFT_DELETE', 'deleted_at', None, current_time, 'admin')
         
         conn.close()
+        flash('예약이 성공적으로 삭제되었습니다.', 'success')
         return redirect(url_for('reservation.reservations_page'))
     except Exception as e:
+        conn.close()
         print(f'예약 삭제 오류: {e}')
-        return render_template('reservations.html', error='예약 삭제 중 오류가 발생했습니다.')
+        flash('예약 삭제 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('reservation.reservations_page'))
+
+@reservation_bp.route('/restore/<int:reservation_id>', methods=['POST'])
+@jwt_required(current_app)
+def restore_reservation_page(reservation_id):
+    """예약을 복원하고 예약 목록 페이지로 리다이렉트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
+    try:
+        # 복원할 예약이 존재하는지 확인 (논리적으로 삭제된 예약만)
+        cursor.execute('SELECT id FROM reservations WHERE id = ? AND deleted_at IS NOT NULL', (reservation_id,))
+        reservation = cursor.fetchone()
+        if not reservation:
+            flash('예약을 찾을 수 없거나 이미 활성 상태입니다.', 'error')
+            return redirect(url_for('reservation.reservations_page'))
+
+        # 예약 복원 (deleted_at 필드를 NULL로 업데이트)
+        cursor.execute('UPDATE reservations SET deleted_at = NULL, updated_at = ? WHERE id = ?', (current_time, reservation_id))
+        conn.commit()
+
+        log_reservation_change(reservation_id, 'RESTORE', 'deleted_at', current_time, None, 'admin')
+        
+        conn.close()
+        flash('예약이 성공적으로 복원되었습니다.', 'success')
+        return redirect(url_for('reservation.reservations_page'))
+    except Exception as e:
+        conn.close()
+        print(f'예약 복원 오류: {e}')
+        flash('예약 복원 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('reservation.reservations_page'))
 
 @reservation_bp.route('/export-csv')
 @jwt_required(current_app)
@@ -753,6 +795,12 @@ def edit_reservation_page(reservation_id):
     if not reservation:
         conn.close()
         return render_template('edit_reservation.html', reservation=None, error='예약을 찾을 수 없습니다.')
+    
+    # 논리적으로 삭제된 예약은 수정 페이지에 접근할 수 없음
+    if reservation['deleted_at'] is not None:
+        conn.close()
+        flash('이미 삭제된 예약입니다. 복원 후 수정해주세요.', 'error')
+        return redirect(url_for('reservation.reservations_page'))
     
     # 고객과 일정 목록을 가져오기 (edit 페이지는 모든 목록을 가져옴)
     cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')

@@ -46,6 +46,10 @@ def log_reservation_change(reservation_id, action, field_name, old_value, new_va
     """예약 변경 로그 기록"""
     log_change('reservations', reservation_id, action, field_name, old_value, new_value, changed_by, details)
 
+def log_ticketing_change(ticketing_id, action, field_name, old_value, new_value, changed_by, details=None):
+    """발권 변경 로그 기록"""
+    log_change('ticketing', ticketing_id, action, field_name, old_value, new_value, changed_by, details)
+
 def get_audit_logs(limit, offset, table_name=None, record_id=None, search_term=None):
     conn = get_db_connection()
     cursor = conn.cursor()

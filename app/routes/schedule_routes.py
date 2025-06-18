@@ -53,7 +53,9 @@ def schedules_page():
             count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
 
         if count_conditions:
-            count_query += " WHERE " + " AND ".join(count_conditions)
+            count_query += " WHERE " + " AND ".join(count_conditions) + " AND s.deleted_at IS NULL"
+        else:
+            count_query += " WHERE s.deleted_at IS NULL"
         
         cursor.execute(count_query, count_params)
         total_schedules_count = cursor.fetchone()[0]
@@ -69,7 +71,7 @@ def schedules_page():
         query = """
             SELECT s.*, COALESCE(SUM(r.number_of_people), 0) as booked_slots
             FROM schedules s
-            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled'
+            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled' AND r.deleted_at IS NULL
         """
         
         # WHERE 조건 구성
@@ -83,7 +85,7 @@ def schedules_page():
         
         # WHERE 절 추가
         if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+            query += " WHERE " + " AND ".join(conditions) + " AND s.deleted_at IS NULL"
         
         # GROUP BY 추가
         query += " GROUP BY s.id"
@@ -165,7 +167,7 @@ def get_paginated_schedules_api():
             count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
 
         if count_conditions:
-            count_query += " WHERE " + " AND ".join(count_conditions)
+            count_query += " WHERE " + " AND ".join(count_conditions) + " AND s.deleted_at IS NULL"
 
         cursor.execute(count_query, count_params)
         total_schedules_count = cursor.fetchone()[0]
@@ -173,7 +175,7 @@ def get_paginated_schedules_api():
         query = """
             SELECT s.*, COALESCE(SUM(r.number_of_people), 0) as booked_slots
             FROM schedules s
-            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled'
+            LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled' AND r.deleted_at IS NULL
         """
 
         conditions = []
@@ -185,7 +187,7 @@ def get_paginated_schedules_api():
             params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
 
         if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+            query += " WHERE " + " AND ".join(conditions) + " AND s.deleted_at IS NULL"
 
         query += " GROUP BY s.id"
 
@@ -231,10 +233,13 @@ def get_paginated_schedules_api():
 @schedule_bp.route('/api/schedules', methods=['GET'])
 @jwt_required(current_app)
 def get_schedules():
-    """일정 목록 API (기존) - 이제 사용되지 않거나 다른 목적으로 사용될 수 있음"""
-    # 이 API는 이제 사용되지 않거나, 전체 목록이 필요한 경우에만 호출될 수 있습니다.
-    # pagination API를 사용하는 것이 좋습니다.
-    return get_paginated_schedules_api(offset=0, limit=100000) # 더미 값으로 무한대를 대체합니다.
+    """모든 일정 목록을 반환하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM schedules WHERE deleted_at IS NULL ORDER BY created_at DESC')
+    schedules = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(schedules)
 
 @schedule_bp.route('/api/schedules', methods=['POST'])
 @jwt_required(current_app)
@@ -296,23 +301,16 @@ def create_schedule():
 @schedule_bp.route('/api/schedules/<int:schedule_id>', methods=['GET'])
 @jwt_required(current_app)
 def get_schedule_by_id(schedule_id):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,))
-        schedule = cursor.fetchone()
-        conn.close()
-        if not schedule:
-            raise APIError('일정을 찾을 수 없습니다.', 404)
-        schedule_data = dict(schedule)
-        schedule_data['createdAt'] = schedule_data.pop('created_at')
-        schedule_data['updatedAt'] = schedule_data.pop('updated_at')
-        return jsonify(schedule_data)
-    except APIError:
-        raise
-    except Exception as e:
-        print(f'일정 조회 실패: {e}')
-        raise APIError('일정 조회 중 오류가 발생했습니다.', 500)
+    """단일 일정 정보를 반환하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # deleted_at이 NULL인 (삭제되지 않은) 일정만 조회
+    cursor.execute('SELECT * FROM schedules WHERE id = ? AND deleted_at IS NULL', (schedule_id,))
+    schedule = cursor.fetchone()
+    conn.close()
+    if schedule:
+        return jsonify(dict(schedule))
+    raise APIError('일정을 찾을 수 없습니다.', 404)
 
 @schedule_bp.route('/api/schedules/<int:schedule_id>', methods=['PUT'])
 @jwt_required(current_app)
@@ -355,6 +353,10 @@ def update_schedule(schedule_id):
             raise APIError('일정을 찾을 수 없습니다.', 404)
         
         current_time = datetime.now().isoformat()
+
+        # 논리적으로 삭제된 일정은 수정할 수 없음
+        if old_schedule['deleted_at'] is not None:
+            raise APIError('삭제된 일정은 수정할 수 없습니다.', 400)
 
         # 변경된 필드 추적
         changes = []
@@ -455,53 +457,92 @@ def update_schedule(schedule_id):
 @schedule_bp.route('/api/schedules/<int:schedule_id>', methods=['DELETE'])
 @jwt_required(current_app)
 def delete_schedule(schedule_id):
+    """일정을 논리적으로 삭제하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM reservations WHERE schedule_id = ?', (schedule_id,))
-        reservations_count = cursor.fetchone()[0]
-        if reservations_count > 0:
-            conn.close()
-            raise APIError('예약이 있는 일정은 삭제할 수 없습니다.', 400)
-        
-        # 삭제 전 일정 정보 조회
-        cursor.execute('SELECT title FROM schedules WHERE id = ?', (schedule_id,))
+        # 삭제할 일정이 존재하는지 확인
+        cursor.execute('SELECT id FROM schedules WHERE id = ? AND deleted_at IS NULL', (schedule_id,))
         schedule = cursor.fetchone()
-        schedule_title = schedule[0] if schedule else 'Unknown'
+        if not schedule:
+            raise APIError('일정을 찾을 수 없거나 이미 삭제되었습니다.', 404)
         
-        cursor.execute('DELETE FROM schedules WHERE id = ?', (schedule_id,))
+        # 논리적 삭제 (deleted_at 필드 업데이트)
+        cursor.execute('UPDATE schedules SET deleted_at = ?, updated_at = ? WHERE id = ?', (current_time, current_time, schedule_id))
         conn.commit()
-        
-        if cursor.rowcount == 0:
-            conn.close()
-            raise APIError('일정을 찾을 수 없습니다.', 404)
+
+        log_schedule_change(schedule_id, 'SOFT_DELETE', 'deleted_at', None, current_time, 'admin')
         
         conn.close()
-        return jsonify({'message': '일정이 삭제되었습니다.'})
-    except APIError:
-        raise
+        return jsonify({'message': '일정이 성공적으로 삭제되었습니다.'})
+    except APIError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), e.status_code
     except Exception as e:
+        conn.close()
         print(f'일정 삭제 오류: {e}')
-        raise APIError('일정 삭제 중 오류가 발생했습니다.', 500)
+        return jsonify({'error': '일정 삭제 중 오류가 발생했습니다.'}), 500
 
 @schedule_bp.route('/delete/<int:schedule_id>', methods=['POST'])
 @jwt_required(current_app)
 def delete_schedule_page(schedule_id):
+    """일정을 논리적으로 삭제하고 일정 목록 페이지로 리다이렉트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) FROM reservations WHERE schedule_id = ?', (schedule_id,))
-        reservations_count = cursor.fetchone()[0]
-        if reservations_count > 0:
-            conn.close()
-            return render_template('schedules.html', error='예약이 있는 일정은 삭제할 수 없습니다.')
-        cursor.execute('DELETE FROM schedules WHERE id = ?', (schedule_id,))
+        # 삭제할 일정이 존재하는지 확인
+        cursor.execute('SELECT id FROM schedules WHERE id = ? AND deleted_at IS NULL', (schedule_id,))
+        schedule = cursor.fetchone()
+        if not schedule:
+            flash('일정을 찾을 수 없거나 이미 삭제되었습니다.', 'error')
+            return redirect(url_for('schedule.schedules_page'))
+
+        # 논리적 삭제 (deleted_at 필드 업데이트)
+        cursor.execute('UPDATE schedules SET deleted_at = ?, updated_at = ? WHERE id = ?', (current_time, current_time, schedule_id))
         conn.commit()
+
+        log_schedule_change(schedule_id, 'SOFT_DELETE', 'deleted_at', None, current_time, 'admin')
+        
         conn.close()
+        flash('일정이 성공적으로 삭제되었습니다.', 'success')
         return redirect(url_for('schedule.schedules_page'))
     except Exception as e:
+        conn.close()
         print(f'일정 삭제 오류: {e}')
-        return render_template('schedules.html', error='일정 삭제 중 오류가 발생했습니다.')
+        flash('일정 삭제 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('schedule.schedules_page'))
+
+@schedule_bp.route('/restore/<int:schedule_id>', methods=['POST'])
+@jwt_required(current_app)
+def restore_schedule_page(schedule_id):
+    """일정을 복원하고 일정 목록 페이지로 리다이렉트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
+    try:
+        # 복원할 일정이 존재하는지 확인 (논리적으로 삭제된 일정만)
+        cursor.execute('SELECT id FROM schedules WHERE id = ? AND deleted_at IS NOT NULL', (schedule_id,))
+        schedule = cursor.fetchone()
+        if not schedule:
+            flash('일정을 찾을 수 없거나 이미 활성 상태입니다.', 'error')
+            return redirect(url_for('schedule.schedules_page'))
+
+        # 일정 복원 (deleted_at 필드를 NULL로 업데이트)
+        cursor.execute('UPDATE schedules SET deleted_at = NULL, updated_at = ? WHERE id = ?', (current_time, schedule_id))
+        conn.commit()
+
+        log_schedule_change(schedule_id, 'RESTORE', 'deleted_at', current_time, None, 'admin')
+        
+        conn.close()
+        flash('일정이 성공적으로 복원되었습니다.', 'success')
+        return redirect(url_for('schedule.schedules_page'))
+    except Exception as e:
+        conn.close()
+        print(f'일정 복원 오류: {e}')
+        flash('일정 복원 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('schedule.schedules_page'))
 
 @schedule_bp.route('/export-csv')
 @jwt_required(current_app)
@@ -680,10 +721,16 @@ def edit_schedule_page(schedule_id):
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM schedules WHERE id = ?', (schedule_id,))
     schedule = cursor.fetchone()
-    conn.close()
-    
+
     if not schedule:
+        conn.close()
         return render_template('edit_schedule.html', schedule=None, error='일정을 찾을 수 없습니다.')
+    
+    # 논리적으로 삭제된 일정은 수정 페이지에 접근할 수 없음
+    if schedule['deleted_at'] is not None:
+        conn.close()
+        flash('이미 삭제된 일정입니다. 복원 후 수정해주세요.', 'error')
+        return redirect(url_for('schedule.schedules_page'))
     
     if request.method == 'POST':
         # 폼 데이터 가져오기

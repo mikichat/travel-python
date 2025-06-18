@@ -35,9 +35,16 @@ def initialize_database():
             address TEXT,
             notes TEXT,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
         )
     """)
+    cursor.execute("PRAGMA table_info(customers)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'deleted_at' not in columns:
+        cursor.execute("""
+            ALTER TABLE customers ADD COLUMN deleted_at TEXT
+        """)
 
     # schedules 테이블 생성
     cursor.execute("""
@@ -64,9 +71,16 @@ def initialize_database():
             other_items TEXT,
             memo TEXT,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
         )
     """)
+    cursor.execute("PRAGMA table_info(schedules)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'deleted_at' not in columns:
+        cursor.execute("""
+            ALTER TABLE schedules ADD COLUMN deleted_at TEXT
+        """)
 
     # reservations 테이블 생성
     cursor.execute("""
@@ -81,10 +95,17 @@ def initialize_database():
             notes TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
+            deleted_at TEXT,
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
             FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE CASCADE
         )
     """)
+    cursor.execute("PRAGMA table_info(reservations)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'deleted_at' not in columns:
+        cursor.execute("""
+            ALTER TABLE reservations ADD COLUMN deleted_at TEXT
+        """)
 
     # audit_logs 테이블 생성 (변경 로그)
     cursor.execute("""
@@ -98,7 +119,9 @@ def initialize_database():
             new_value TEXT,
             changed_at TEXT NOT NULL,
             changed_by TEXT NOT NULL,
-            details TEXT
+            details TEXT,
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
         )
     """)
 
@@ -113,9 +136,16 @@ def initialize_database():
             passport_attachment_path TEXT,
             memo TEXT,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
         )
     """)
+    cursor.execute("PRAGMA table_info(ticketing)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'deleted_at' not in columns:
+        cursor.execute("""
+            ALTER TABLE ticketing ADD COLUMN deleted_at TEXT
+        """)
     
     conn.commit()
     conn.close() 

@@ -214,10 +214,13 @@ def get_paginated_customers_api():
 @customer_bp.route('/api/customers', methods=['GET'])
 @jwt_required(current_app)
 def get_customers():
-    """고객 목록 API (기존) - 이제 사용되지 않거나 다른 목적으로 사용될 수 있음"""
-    # 이 API는 이제 사용되지 않거나, 전체 목록이 필요한 경우에만 호출될 수 있습니다.
-    # pagination API를 사용하는 것이 좋습니다.
-    return get_paginated_customers_api(offset=0, limit=100000) # 더미 값으로 무한대를 대체합니다.
+    """모든 고객 목록을 반환하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM customers WHERE deleted_at IS NULL ORDER BY created_at DESC') # 논리적 삭제된 고객 제외
+    customers = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(customers)
 
 @customer_bp.route('/api/customers', methods=['POST'])
 @jwt_required(current_app)
@@ -260,27 +263,16 @@ def create_customer():
 @customer_bp.route('/api/customers/<int:customer_id>', methods=['GET'])
 @jwt_required(current_app)
 def get_customer_by_id(customer_id):
-    """특정 고객 조회 API"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers WHERE id = ?', (customer_id,))
-        customer = cursor.fetchone()
-        conn.close()
-
-        if not customer:
-            raise APIError('고객을 찾을 수 없습니다.', 404)
-
-        customer_data = dict(customer)
-        customer_data['createdAt'] = customer_data.pop('created_at')
-        customer_data['updatedAt'] = customer_data.pop('updated_at')
-
-        return jsonify(customer_data)
-    except APIError:
-        raise
-    except Exception as e:
-        print(f'고객 조회 실패: {e}')
-        raise APIError('고객 조회 중 오류가 발생했습니다.', 500)
+    """단일 고객 정보를 반환하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # deleted_at이 NULL인 (삭제되지 않은) 고객만 조회
+    cursor.execute('SELECT * FROM customers WHERE id = ? AND deleted_at IS NULL', (customer_id,))
+    customer = cursor.fetchone()
+    conn.close()
+    if customer:
+        return jsonify(dict(customer))
+    raise APIError('고객을 찾을 수 없습니다.', 404)
 
 @customer_bp.route('/api/customers/<int:customer_id>', methods=['PUT'])
 @jwt_required(current_app)
@@ -301,13 +293,17 @@ def update_customer(customer_id):
         cursor = conn.cursor()
         
         # 기존 고객 정보 조회
-        cursor.execute('SELECT name, phone, email, address, notes FROM customers WHERE id = ?', (customer_id,))
-        old_customer = cursor.fetchone()
+        cursor.execute('SELECT * FROM customers WHERE id = ?', (customer_id,))
+        existing_customer = cursor.fetchone()
         
-        if not old_customer:
+        if not existing_customer:
             conn.close()
             raise APIError('고객을 찾을 수 없습니다.', 404)
         
+        # 논리적으로 삭제된 고객은 수정할 수 없음
+        if existing_customer['deleted_at'] is not None:
+            raise APIError('삭제된 고객은 수정할 수 없습니다.', 400)
+
         current_time = datetime.now().isoformat()
 
         cursor.execute("""
@@ -323,21 +319,21 @@ def update_customer(customer_id):
 
         # 변경된 필드 추적 및 로그 기록
         changes = []
-        if old_customer['name'] != name:
-            changes.append(f"이름: {old_customer['name']} → {name}")
-            log_customer_change(customer_id, 'UPDATE', 'name', old_customer['name'], name, 'admin')
-        if old_customer['phone'] != phone:
-            changes.append(f"전화번호: {old_customer['phone']} → {phone}")
-            log_customer_change(customer_id, 'UPDATE', 'phone', old_customer['phone'], phone, 'admin')
-        if old_customer['email'] != email:
-            changes.append(f"이메일: {old_customer['email']} → {email}")
-            log_customer_change(customer_id, 'UPDATE', 'email', old_customer['email'], email, 'admin')
-        if old_customer['address'] != address:
-            changes.append(f"주소: {old_customer['address']} → {address}")
-            log_customer_change(customer_id, 'UPDATE', 'address', old_customer['address'], address, 'admin')
-        if old_customer['notes'] != notes:
-            changes.append(f"메모: {old_customer['notes']} → {notes}")
-            log_customer_change(customer_id, 'UPDATE', 'notes', old_customer['notes'], notes, 'admin')
+        if existing_customer['name'] != name:
+            changes.append(f"이름: {existing_customer['name']} → {name}")
+            log_customer_change(customer_id, 'UPDATE', 'name', existing_customer['name'], name, 'admin')
+        if existing_customer['phone'] != phone:
+            changes.append(f"전화번호: {existing_customer['phone']} → {phone}")
+            log_customer_change(customer_id, 'UPDATE', 'phone', existing_customer['phone'], phone, 'admin')
+        if existing_customer['email'] != email:
+            changes.append(f"이메일: {existing_customer['email']} → {email}")
+            log_customer_change(customer_id, 'UPDATE', 'email', existing_customer['email'], email, 'admin')
+        if existing_customer['address'] != address:
+            changes.append(f"주소: {existing_customer['address']} → {address}")
+            log_customer_change(customer_id, 'UPDATE', 'address', existing_customer['address'], address, 'admin')
+        if existing_customer['notes'] != notes:
+            changes.append(f"메모: {existing_customer['notes']} → {notes}")
+            log_customer_change(customer_id, 'UPDATE', 'notes', existing_customer['notes'], notes, 'admin')
         
         cursor.execute('SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers WHERE id = ?', (customer_id,))
         updated_customer = cursor.fetchone()
@@ -357,60 +353,92 @@ def update_customer(customer_id):
 @customer_bp.route('/api/customers/<int:customer_id>', methods=['DELETE'])
 @jwt_required(current_app)
 def delete_customer(customer_id):
-    """고객 삭제 API"""
+    """고객을 논리적으로 삭제하는 API 엔드포인트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # 예약이 있는지 확인
-        cursor.execute('SELECT COUNT(*) FROM reservations WHERE customer_id = ?', (customer_id,))
-        reservations_count = cursor.fetchone()[0]
-
-        if reservations_count > 0:
-            conn.close()
-            raise APIError('예약이 있는 고객은 삭제할 수 없습니다.', 400)
-
-        # 삭제 전 고객 정보 조회
-        cursor.execute('SELECT name FROM customers WHERE id = ?', (customer_id,))
+        # 삭제할 고객이 존재하는지 확인
+        cursor.execute('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL', (customer_id,))
         customer = cursor.fetchone()
-        customer_name = customer[0] if customer else 'Unknown'
-
-        cursor.execute('DELETE FROM customers WHERE id = ?', (customer_id,))
+        if not customer:
+            raise APIError('고객을 찾을 수 없거나 이미 삭제되었습니다.', 404)
+        
+        # 논리적 삭제 (deleted_at 필드 업데이트)
+        cursor.execute('UPDATE customers SET deleted_at = ?, updated_at = ? WHERE id = ?', (current_time, current_time, customer_id))
         conn.commit()
+
+        log_customer_change(customer_id, 'SOFT_DELETE', 'deleted_at', None, current_time, 'admin')
         
         conn.close()
-
-        return redirect(url_for('customer.customers_page'))
-    except APIError:
-        raise
+        return jsonify({'message': '고객이 성공적으로 삭제되었습니다.'})
+    except APIError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), e.status_code
     except Exception as e:
+        conn.close()
         print(f'고객 삭제 오류: {e}')
-        raise APIError('고객 삭제 중 오류가 발생했습니다.', 500)
+        return jsonify({'error': '고객 삭제 중 오류가 발생했습니다.'}), 500
 
 @customer_bp.route('/delete/<int:customer_id>', methods=['POST'])
 @jwt_required(current_app)
 def delete_customer_page(customer_id):
-    """고객 삭제 페이지"""
+    """고객을 논리적으로 삭제하고 고객 목록 페이지로 리다이렉트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # 삭제할 고객이 존재하는지 확인
+        cursor.execute('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL', (customer_id,))
+        customer = cursor.fetchone()
+        if not customer:
+            flash('고객을 찾을 수 없거나 이미 삭제되었습니다.', 'error')
+            return redirect(url_for('customer.customers_page'))
 
-        # 예약이 있는지 확인
-        cursor.execute('SELECT COUNT(*) FROM reservations WHERE customer_id = ?', (customer_id,))
-        reservations_count = cursor.fetchone()[0]
-
-        if reservations_count > 0:
-            conn.close()
-            return render_template('customers.html', error='예약이 있는 고객은 삭제할 수 없습니다.')
-
-        cursor.execute('DELETE FROM customers WHERE id = ?', (customer_id,))
+        # 논리적 삭제 (deleted_at 필드 업데이트)
+        cursor.execute('UPDATE customers SET deleted_at = ?, updated_at = ? WHERE id = ?', (current_time, current_time, customer_id))
         conn.commit()
-        conn.close()
 
+        log_customer_change(customer_id, 'SOFT_DELETE', 'deleted_at', None, current_time, 'admin')
+        
+        conn.close()
+        flash('고객이 성공적으로 삭제되었습니다.', 'success')
         return redirect(url_for('customer.customers_page'))
     except Exception as e:
+        conn.close()
         print(f'고객 삭제 오류: {e}')
-        return render_template('customers.html', error='고객 삭제 중 오류가 발생했습니다.')
+        flash('고객 삭제 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('customer.customers_page'))
+
+@customer_bp.route('/restore/<int:customer_id>', methods=['POST'])
+@jwt_required(current_app)
+def restore_customer_page(customer_id):
+    """고객을 복원하고 고객 목록 페이지로 리다이렉트"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    current_time = datetime.now().isoformat()
+    try:
+        # 복원할 고객이 존재하는지 확인 (논리적으로 삭제된 고객만)
+        cursor.execute('SELECT id FROM customers WHERE id = ? AND deleted_at IS NOT NULL', (customer_id,))
+        customer = cursor.fetchone()
+        if not customer:
+            flash('고객을 찾을 수 없거나 이미 활성 상태입니다.', 'error')
+            return redirect(url_for('customer.customers_page'))
+
+        # 고객 복원 (deleted_at 필드를 NULL로 업데이트)
+        cursor.execute('UPDATE customers SET deleted_at = NULL, updated_at = ? WHERE id = ?', (current_time, customer_id))
+        conn.commit()
+
+        log_customer_change(customer_id, 'RESTORE', 'deleted_at', current_time, None, 'admin')
+        
+        conn.close()
+        flash('고객이 성공적으로 복원되었습니다.', 'success')
+        return redirect(url_for('customer.customers_page'))
+    except Exception as e:
+        conn.close()
+        print(f'고객 복원 오류: {e}')
+        flash('고객 복원 중 오류가 발생했습니다.', 'error')
+        return redirect(url_for('customer.customers_page'))
 
 @customer_bp.route('/export-csv')
 @jwt_required(current_app)
