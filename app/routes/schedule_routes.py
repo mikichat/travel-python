@@ -33,10 +33,38 @@ def schedules_page():
         search = request.args.get('search', '').strip()
         sort_by = request.args.get('sort_by', 'created_at')
         order = request.args.get('order', 'desc')
-        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 30, type=int)
+
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # 전체 일정 수 가져오기 (페이지네이션을 위해)
+        count_query = """
+            SELECT COUNT(*)
+            FROM schedules s
+        """
+        count_conditions = []
+        count_params = []
+
+        if search:
+            count_conditions.append("(s.title LIKE ? OR s.destination LIKE ? OR s.description LIKE ? OR s.region LIKE ?)")
+            search_pattern = f"%{search}%"
+            count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+        if count_conditions:
+            count_query += " WHERE " + " AND ".join(count_conditions)
         
+        cursor.execute(count_query, count_params)
+        total_schedules_count = cursor.fetchone()[0]
+        
+        # 총 페이지 수 계산
+        total_pages = (total_schedules_count + per_page - 1) // per_page
+        if page < 1: page = 1
+        if page > total_pages and total_pages > 0: page = total_pages
+
+        offset = (page - 1) * per_page
+
         # 기본 쿼리 - 일정과 예약된 슬롯 수를 조인하여 조회
         query = """
             SELECT s.*, COALESCE(SUM(r.number_of_people), 0) as booked_slots
@@ -68,8 +96,8 @@ def schedules_page():
         # 정렬 필드 매핑
         sort_field_mapping = {
             'destination': 's.destination',
-            'date': 's.start_date',
-            'capacity': 's.max_people',
+            'start_date': 's.start_date',
+            'max_people': 's.max_people',
             'created_at': 's.created_at',
             'title': 's.title',
             'price': 's.price'
@@ -77,8 +105,9 @@ def schedules_page():
         
         sort_field = sort_field_mapping.get(sort_by, 's.created_at')
         sort_direction = 'DESC' if order == 'desc' else 'ASC'
-        query += f" ORDER BY {sort_field} {sort_direction}"
-        
+        query += f" ORDER BY {sort_field} {sort_direction} LIMIT ? OFFSET ?"
+        params.extend([per_page, offset])
+
         # 쿼리 실행
         cursor.execute(query, params)
         schedules = cursor.fetchall()
@@ -95,38 +124,117 @@ def schedules_page():
             schedule_dict['booked_slots'] = schedule_dict.get('booked_slots', 0)
             schedules_list.append(schedule_dict)
         
-        return render_template('schedules.html', schedules=schedules_list, total_schedules=len(schedules_list))
+        return render_template('schedules.html', 
+                               schedules=schedules_list,
+                               total_schedules_count=total_schedules_count,
+                               search=search,
+                               sort_by=sort_by,
+                               order=order,
+                               page=page,
+                               per_page=per_page,
+                               total_pages=total_pages)
     except Exception as e:
         print(f'일정 목록 조회 오류: {e}')
         return render_template('schedules.html', error='일정 목록을 불러오는 중 오류가 발생했습니다.')
 
-@schedule_bp.route('/api/schedules', methods=['GET'])
+@schedule_bp.route('/api/schedules/paginated', methods=['GET'])
 @jwt_required(current_app)
-def get_schedules():
+def get_paginated_schedules_api():
+    """페이지네이션 및 검색/정렬을 지원하는 일정 목록 API"""
     try:
+        offset = request.args.get('offset', type=int, default=0)
+        limit = request.args.get('limit', type=int, default=30)
+        search = request.args.get('search', '').strip()
+        sort_by = request.args.get('sort_by', 'created_at')
+        order = request.args.get('order', 'desc')
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        # 일정과 예약된 슬롯 수를 조인하여 조회
-        cursor.execute("""
+
+        # 전체 일정 수 가져오기
+        count_query = """
+            SELECT COUNT(*)
+            FROM schedules s
+        """
+        count_conditions = []
+        count_params = []
+
+        if search:
+            count_conditions.append("(s.title LIKE ? OR s.destination LIKE ? OR s.description LIKE ? OR s.region LIKE ?)")
+            search_pattern = f"%{search}%"
+            count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+        if count_conditions:
+            count_query += " WHERE " + " AND ".join(count_conditions)
+
+        cursor.execute(count_query, count_params)
+        total_schedules_count = cursor.fetchone()[0]
+
+        query = """
             SELECT s.*, COALESCE(SUM(r.number_of_people), 0) as booked_slots
             FROM schedules s
             LEFT JOIN reservations r ON s.id = r.schedule_id AND r.status != 'Cancelled'
-            GROUP BY s.id
-            ORDER BY s.created_at DESC
-        """)
+        """
+
+        conditions = []
+        params = []
+
+        if search:
+            conditions.append("(s.title LIKE ? OR s.destination LIKE ? OR s.description LIKE ? OR s.region LIKE ?)")
+            search_pattern = f"%{search}%"
+            params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " GROUP BY s.id"
+
+        valid_sort_fields = ['destination', 'start_date', 'max_people', 'created_at', 'title', 'price']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'created_at'
+
+        sort_field_mapping = {
+            'destination': 's.destination',
+            'start_date': 's.start_date',
+            'max_people': 's.max_people',
+            'created_at': 's.created_at',
+            'title': 's.title',
+            'price': 's.price'
+        }
+
+        sort_field = sort_field_mapping.get(sort_by, 's.created_at')
+        sort_direction = 'DESC' if order == 'desc' else 'ASC'
+        query += f" ORDER BY {sort_field} {sort_direction} LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
         schedules = cursor.fetchall()
         conn.close()
+
         schedules_list = []
         for schedule in schedules:
             schedule_data = dict(schedule)
             schedule_data['createdAt'] = schedule_data.pop('created_at')
             schedule_data['updatedAt'] = schedule_data.pop('updated_at')
             schedule_data['bookedSlots'] = schedule_data.pop('booked_slots', 0)
+            # 템플릿에서 사용하는 필드들로 매핑 (필요한 경우)
+            schedule_data['date'] = schedule_data.get('start_date', '')
+            schedule_data['time'] = schedule_data.get('meeting_time', '')
+            schedule_data['capacity'] = schedule_data.get('max_people', 0)
+            schedule_data['booked_slots'] = schedule_data.get('booked_slots', 0)
             schedules_list.append(schedule_data)
-        return jsonify(schedules_list)
+        return jsonify(schedules_list=schedules_list, total_count=total_schedules_count)
     except Exception as e:
-        print(f'일정 조회 실패: {e}')
-        raise APIError('일정 조회 중 오류가 발생했습니다.', 500)
+        print(f'일정 페이지네이션 API 조회 실패: {e}')
+        raise APIError('일정 목록 조회 중 오류가 발생했습니다.', 500)
+
+@schedule_bp.route('/api/schedules', methods=['GET'])
+@jwt_required(current_app)
+def get_schedules():
+    """일정 목록 API (기존) - 이제 사용되지 않거나 다른 목적으로 사용될 수 있음"""
+    # 이 API는 이제 사용되지 않거나, 전체 목록이 필요한 경우에만 호출될 수 있습니다.
+    # pagination API를 사용하는 것이 좋습니다.
+    return get_paginated_schedules_api(offset=0, limit=100000) # 더미 값으로 무한대를 대체합니다.
 
 @schedule_bp.route('/api/schedules', methods=['POST'])
 @jwt_required(current_app)

@@ -46,91 +46,51 @@ def log_reservation_change(reservation_id, action, field_name, old_value, new_va
     """예약 변경 로그 기록"""
     log_change('reservations', reservation_id, action, field_name, old_value, new_value, changed_by, details)
 
-def get_audit_logs(limit=100, offset=0, table_name=None, record_id=None):
-    """
-    변경 로그 조회
-    
-    Args:
-        limit (int): 조회할 로그 개수
-        offset (int): 시작 위치
-        table_name (str, optional): 특정 테이블만 조회
-        record_id (int, optional): 특정 레코드만 조회
-    
-    Returns:
-        list: 변경 로그 목록
-    """
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        query = """
-            SELECT al.*, 
-                   CASE 
-                       WHEN al.table_name = 'customers' THEN c.name
-                       WHEN al.table_name = 'schedules' THEN s.title
-                       WHEN al.table_name = 'reservations' THEN CONCAT(c.name, ' - ', s.title)
-                       ELSE 'Unknown'
-                   END as record_name
-            FROM audit_logs al
-            LEFT JOIN customers c ON al.table_name = 'customers' AND al.record_id = c.id
-            LEFT JOIN schedules s ON al.table_name = 'schedules' AND al.record_id = s.id
-            LEFT JOIN reservations r ON al.table_name = 'reservations' AND al.record_id = r.id
-            LEFT JOIN customers rc ON al.table_name = 'reservations' AND r.customer_id = rc.id
-            LEFT JOIN schedules rs ON al.table_name = 'reservations' AND r.schedule_id = rs.id
-        """
-        
-        conditions = []
-        params = []
-        
-        if table_name:
-            conditions.append("al.table_name = ?")
-            params.append(table_name)
-        
-        if record_id:
-            conditions.append("al.record_id = ?")
-            params.append(record_id)
-        
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-        
-        query += " ORDER BY al.changed_at DESC LIMIT ? OFFSET ?"
-        params.extend([limit, offset])
-        
-        cursor.execute(query, params)
-        logs = cursor.fetchall()
-        conn.close()
-        
-        return [dict(log) for log in logs]
-    except Exception as e:
-        print(f"변경 로그 조회 오류: {e}")
-        return []
+def get_audit_logs(limit, offset, table_name=None, record_id=None, search_term=None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-def get_audit_logs_count(table_name=None, record_id=None):
-    """변경 로그 총 개수 조회"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        query = "SELECT COUNT(*) FROM audit_logs"
-        conditions = []
-        params = []
-        
-        if table_name:
-            conditions.append("table_name = ?")
-            params.append(table_name)
-        
-        if record_id:
-            conditions.append("record_id = ?")
-            params.append(record_id)
-        
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-        
-        cursor.execute(query, params)
-        count = cursor.fetchone()[0]
-        conn.close()
-        
-        return count
-    except Exception as e:
-        print(f"변경 로그 개수 조회 오류: {e}")
-        return 0 
+    query = "SELECT * FROM audit_logs WHERE 1=1"
+    params = []
+
+    if table_name:
+        query += " AND table_name = ?"
+        params.append(table_name)
+    if record_id is not None:
+        query += " AND record_id = ?"
+        params.append(record_id)
+    if search_term:
+        search_term_like = f"%{search_term}%"
+        query += " AND (action LIKE ? OR field_name LIKE ? OR changed_by LIKE ? OR details LIKE ?)"
+        params.extend([search_term_like, search_term_like, search_term_like, search_term_like])
+
+    query += " ORDER BY changed_at DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+
+    cursor.execute(query, params)
+    logs = cursor.fetchall()
+    conn.close()
+    return logs
+
+def get_audit_logs_count(table_name=None, record_id=None, search_term=None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    query = "SELECT COUNT(*) FROM audit_logs WHERE 1=1"
+    params = []
+
+    if table_name:
+        query += " AND table_name = ?"
+        params.append(table_name)
+    if record_id is not None:
+        query += " AND record_id = ?"
+        params.append(record_id)
+    if search_term:
+        search_term_like = f"%{search_term}%"
+        query += " AND (action LIKE ? OR field_name LIKE ? OR changed_by LIKE ? OR details LIKE ?)"
+        params.extend([search_term_like, search_term_like, search_term_like, search_term_like])
+
+    cursor.execute(query, params)
+    total_count = cursor.fetchone()[0]
+    conn.close()
+    return total_count 

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, jsonify
 from app.models.ticketing_model import Ticketing
 from app.utils.auth import jwt_required
 from datetime import datetime
@@ -12,19 +12,79 @@ ticketing_bp = Blueprint('ticketing', __name__)
 @ticketing_bp.route('/')
 @jwt_required(current_app)
 def ticketing_page():
-    airline_type = request.args.get('airline_type')
-    flight_type = request.args.get('flight_type')
-    ticketing_status = request.args.get('ticketing_status')
-    ticket_code = request.args.get('ticket_code')
+    airline_type = request.args.get('airline_type', '')
+    flight_type = request.args.get('flight_type', '')
+    ticketing_status = request.args.get('ticketing_status', '')
+    ticket_code = request.args.get('ticket_code', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 30, type=int)
 
-    ticketing_entries = Ticketing.search(airline_type, flight_type, ticketing_status, ticket_code)
+    offset = (page - 1) * per_page
+
+    ticketing_entries, total_count = Ticketing.search(
+        airline_type=airline_type,
+        flight_type=flight_type,
+        ticketing_status=ticketing_status,
+        ticket_code=ticket_code,
+        offset=offset,
+        limit=per_page,
+        include_total_count=True
+    )
     
+    total_pages = (total_count + per_page - 1) // per_page
+    if page < 1: page = 1
+    if page > total_pages and total_pages > 0: page = total_pages
+
     return render_template('ticketing.html', 
                            ticketing_entries=ticketing_entries,
+                           total_ticketing_count=total_count,
                            airline_type=airline_type,
                            flight_type=flight_type,
                            ticketing_status=ticketing_status,
-                           ticket_code=ticket_code)
+                           ticket_code=ticket_code,
+                           page=page,
+                           per_page=per_page,
+                           total_pages=total_pages)
+
+@ticketing_bp.route('/api/ticketing/paginated', methods=['GET'])
+@jwt_required(current_app)
+def get_paginated_ticketing_api():
+    try:
+        offset = request.args.get('offset', type=int, default=0)
+        limit = request.args.get('limit', type=int, default=30)
+        airline_type = request.args.get('airline_type', '')
+        flight_type = request.args.get('flight_type', '')
+        ticketing_status = request.args.get('ticketing_status', '')
+        ticket_code = request.args.get('ticket_code', '')
+
+        ticketing_entries, total_count = Ticketing.search(
+            airline_type=airline_type,
+            flight_type=flight_type,
+            ticketing_status=ticketing_status,
+            ticket_code=ticket_code,
+            offset=offset,
+            limit=limit,
+            include_total_count=True
+        )
+
+        # API 응답을 위해 객체를 딕셔너리로 변환
+        entries_list = []
+        for entry in ticketing_entries:
+            entries_list.append({
+                'id': entry.id,
+                'airlineType': entry.airline_type,
+                'flightType': entry.flight_type,
+                'ticketingStatus': entry.ticketing_status,
+                'ticketCode': entry.ticket_code,
+                'passportAttachmentPaths': entry.passport_attachment_paths,
+                'memo': entry.memo,
+                'createdAt': entry.created_at,
+                'updatedAt': entry.updated_at
+            })
+        return jsonify(entries_list=entries_list, total_count=total_count)
+    except Exception as e:
+        print(f'발권 페이지네이션 API 조회 실패: {e}')
+        return jsonify({'error': '발권 목록을 불러오는 중 오류가 발생했습니다.'}), 500
 
 # 발권 추가 페이지 (GET)
 @ticketing_bp.route('/create', methods=['GET', 'POST'])

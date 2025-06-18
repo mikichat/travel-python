@@ -40,13 +40,58 @@ def reservations_page():
         # 검색 파라미터 가져오기
         customer_name = request.args.get('customer_name', '').strip()
         schedule_title = request.args.get('schedule_title', '').strip()
-        status = request.args.get('status', '').strip()
+        status_filter = request.args.get('status', '').strip()
         date_from = request.args.get('date_from', '').strip()
         date_to = request.args.get('date_to', '').strip()
-        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 30, type=int)
+
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # 전체 예약 수 가져오기
+        count_query = """
+            SELECT COUNT(*)
+            FROM reservations r
+            LEFT JOIN customers c ON r.customer_id = c.id
+            LEFT JOIN schedules s ON r.schedule_id = s.id
+        """
+        count_conditions = []
+        count_params = []
+
+        if customer_name:
+            count_conditions.append("c.name LIKE ?")
+            count_params.append(f"%{customer_name}%")
         
+        if schedule_title:
+            count_conditions.append("s.title LIKE ?")
+            count_params.append(f"%{schedule_title}%")
+        
+        if status_filter:
+            count_conditions.append("r.status = ?")
+            count_params.append(status_filter)
+        
+        if date_from:
+            count_conditions.append("s.start_date >= ?")
+            count_params.append(date_from)
+        
+        if date_to:
+            count_conditions.append("s.start_date <= ?")
+            count_params.append(date_to)
+
+        if count_conditions:
+            count_query += " WHERE " + " AND ".join(count_conditions)
+        
+        cursor.execute(count_query, count_params)
+        total_reservations_count = cursor.fetchone()[0]
+
+        # 총 페이지 수 계산
+        total_pages = (total_reservations_count + per_page - 1) // per_page
+        if page < 1: page = 1
+        if page > total_pages and total_pages > 0: page = total_pages
+
+        offset = (page - 1) * per_page
+
         # 기본 쿼리 - schedules 테이블의 start_date, end_date도 조인
         query = """
             SELECT r.*, c.name as customer_name, s.title as schedule_title, 
@@ -68,9 +113,9 @@ def reservations_page():
             conditions.append("s.title LIKE ?")
             params.append(f"%{schedule_title}%")
         
-        if status:
+        if status_filter:
             conditions.append("r.status = ?")
-            params.append(status)
+            params.append(status_filter)
         
         if date_from:
             conditions.append("s.start_date >= ?")
@@ -84,8 +129,9 @@ def reservations_page():
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
         
-        # 정렬
-        query += " ORDER BY r.created_at DESC"
+        # 정렬 및 LIMIT/OFFSET
+        query += " ORDER BY r.created_at DESC LIMIT ? OFFSET ?"
+        params.extend([per_page, offset])
         
         # 쿼리 실행
         cursor.execute(query, params)
@@ -107,26 +153,129 @@ def reservations_page():
             reservation_dict['travelEndDate'] = reservation_dict.get('travel_end_date', '')
             reservations_list.append(reservation_dict)
         
-        return render_template('reservations.html', reservations=reservations_list)
+        return render_template('reservations.html', 
+                               reservations=reservations_list,
+                               total_reservations_count=total_reservations_count,
+                               customer_name=customer_name,
+                               schedule_title=schedule_title,
+                               status_filter=status_filter,
+                               date_from=date_from,
+                               date_to=date_to,
+                               page=page,
+                               per_page=per_page,
+                               total_pages=total_pages)
     except Exception as e:
         print(f'예약 목록 조회 오류: {e}')
         return render_template('reservations.html', error='예약 목록을 불러오는 중 오류가 발생했습니다.')
 
-@reservation_bp.route('/api/reservations', methods=['GET'])
+@reservation_bp.route('/api/reservations/paginated', methods=['GET'])
 @jwt_required(current_app)
-def get_reservations():
+def get_paginated_reservations_api():
+    """페이지네이션 및 검색/정렬을 지원하는 예약 목록 API"""
     try:
+        offset = request.args.get('offset', type=int, default=0)
+        limit = request.args.get('limit', type=int, default=30)
+        customer_name = request.args.get('customer_name', '').strip()
+        schedule_title = request.args.get('schedule_title', '').strip()
+        status_filter = request.args.get('status', '').strip()
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        sort_by = request.args.get('sort_by', 'created_at')
+        sort_order = request.args.get('sort_order', 'desc')
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        # 고객명과 일정명을 조인하여 조회 - 여행 날짜도 포함
-        cursor.execute("""
+
+        # 전체 예약 수 가져오기
+        count_query = """
+            SELECT COUNT(*)
+            FROM reservations r
+            LEFT JOIN customers c ON r.customer_id = c.id
+            LEFT JOIN schedules s ON r.schedule_id = s.id
+        """
+        count_conditions = []
+        count_params = []
+
+        if customer_name:
+            count_conditions.append("c.name LIKE ?")
+            count_params.append(f"%{customer_name}%")
+
+        if schedule_title:
+            count_conditions.append("s.title LIKE ?")
+            count_params.append(f"%{schedule_title}%")
+
+        if status_filter:
+            count_conditions.append("r.status = ?")
+            count_params.append(status_filter)
+
+        if date_from:
+            count_conditions.append("s.start_date >= ?")
+            count_params.append(date_from)
+
+        if date_to:
+            count_conditions.append("s.start_date <= ?")
+            count_params.append(date_to)
+
+        if count_conditions:
+            count_query += " WHERE " + " AND ".join(count_conditions)
+
+        cursor.execute(count_query, count_params)
+        total_reservations_count = cursor.fetchone()[0]
+
+        query = """
             SELECT r.*, c.name as customer_name, s.title as schedule_title,
                    s.start_date as travel_start_date, s.end_date as travel_end_date
             FROM reservations r
             LEFT JOIN customers c ON r.customer_id = c.id
             LEFT JOIN schedules s ON r.schedule_id = s.id
-            ORDER BY r.created_at DESC
-        """)
+        """
+        conditions = []
+        params = []
+
+        if customer_name:
+            conditions.append("c.name LIKE ?")
+            params.append(f"%{customer_name}%")
+
+        if schedule_title:
+            conditions.append("s.title LIKE ?")
+            params.append(f"%{schedule_title}%")
+
+        if status_filter:
+            conditions.append("r.status = ?")
+            params.append(status_filter)
+
+        if date_from:
+            conditions.append("s.start_date >= ?")
+            params.append(date_from)
+
+        if date_to:
+            conditions.append("s.start_date <= ?")
+            params.append(date_to)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        # 정렬
+        valid_sort_fields = ['created_at', 'booking_date', 'total_price', 'customer_name', 'schedule_title', 'status']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'created_at'
+
+        # Joins 때문에 컬럼 이름에 테이블 프리픽스를 붙여야 할 수 있음
+        sort_field_map = {
+            'created_at': 'r.created_at',
+            'booking_date': 'r.booking_date',
+            'total_price': 'r.total_price',
+            'customer_name': 'c.name',
+            'schedule_title': 's.title',
+            'status': 'r.status'
+        }
+        actual_sort_field = sort_field_map.get(sort_by, 'r.created_at')
+
+        sort_direction = 'DESC' if sort_order == 'desc' else 'ASC'
+        query += f" ORDER BY {actual_sort_field} {sort_direction} LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
         reservations = cursor.fetchall()
         conn.close()
         reservations_list = []
@@ -138,11 +287,22 @@ def get_reservations():
             res_data['scheduleTitle'] = res_data.pop('schedule_title', '알 수 없음')
             res_data['travelStartDate'] = res_data.pop('travel_start_date', '')
             res_data['travelEndDate'] = res_data.pop('travel_end_date', '')
+            res_data['bookingDate'] = res_data.get('booking_date', '')
+            res_data['numberOfPeople'] = res_data.get('number_of_people', 0)
+            res_data['totalPrice'] = res_data.get('total_price', 0)
             reservations_list.append(res_data)
-        return jsonify(reservations_list)
+        return jsonify(reservations_list=reservations_list, total_count=total_reservations_count)
     except Exception as e:
-        print(f'예약 조회 실패: {e}')
-        raise APIError('예약 조회 중 오류가 발생했습니다.', 500)
+        print(f'예약 페이지네이션 API 조회 실패: {e}')
+        raise APIError('예약 목록 조회 중 오류가 발생했습니다.', 500)
+
+@reservation_bp.route('/api/reservations', methods=['GET'])
+@jwt_required(current_app)
+def get_reservations():
+    """예약 목록 API (기존) - 이제 사용되지 않거나 다른 목적으로 사용될 수 있음"""
+    # 이 API는 이제 사용되지 않거나, 전체 목록이 필요한 경우에만 호출될 수 있습니다.
+    # pagination API를 사용하는 것이 좋습니다.
+    return get_paginated_reservations_api(offset=0, limit=100000) # 더미 값으로 무한대를 대체합니다.
 
 @reservation_bp.route('/api/reservations', methods=['POST'])
 @jwt_required(current_app)

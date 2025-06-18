@@ -41,7 +41,7 @@
 
     <!-- 검색 및 필터링 폼 -->
     <div class="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-        <form action="{{ url_for('customer.customers_page') }}" method="GET" class="space-y-4">
+        <form id="customer_filter_form" action="{{ url_for('customer.customers_page') }}" method="GET" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
                 <label for="search_term" class="block text-sm font-medium text-gray-700 mb-1">검색</label>
@@ -76,16 +76,19 @@
                     <label for="has_address" class="text-sm font-medium text-gray-700">주소 있는 고객</label>
                 </div>
             </div>
+            <input type="hidden" name="page" id="current_page_input" value="{{ page }}">
+            <input type="hidden" name="per_page" id="per_page_input" value="{{ per_page }}">
+            <input type="hidden" name="reset_page" id="reset_page_on_filter" value="true">
         </div>
             <!-- 검색 버튼 -->
             <div class="flex items-center justify-between">
                 <div class="flex space-x-3">
-                <button type="submit"
+                <button type="submit" id="search_button"
                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-search mr-2"></i>
                     검색
                 </button>
-                <a href="{{ url_for('customer.customers_page') }}"
+                <a href="{{ url_for('customer.customers_page', reset_page=true) }}"
                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-undo mr-2"></i>
                     초기화
@@ -93,11 +96,9 @@
                 </div>
             
                 <!-- 검색 결과 개수 -->
-                {% if customers %}
                 <div class="text-sm text-gray-600">
-                    총 <span class="font-medium">{{ customers|length }}</span>개의 일정이 검색되었습니다.
+                    총 <span class="font-medium" id="total_customers_count">{{ total_customers_count }}</span>명의 고객이 검색되었습니다.
                 </div>
-                {% endif %}
             </div>    
         </form>
     </div>
@@ -157,7 +158,7 @@
         <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
             <div class="flex items-center justify-between">
                 <div class="text-sm text-blue-800">
-                    검색 결과: 총 <span class="font-medium">{{ total_customers_count }}</span>명의 고객이 검색되었습니다.
+                    검색 결과: 총 <span class="font-medium" id="search_result_count">{{ total_customers_count }}</span>명의 고객이 검색되었습니다.
                 </div>
                 <a href="{{ url_for('customer.customers_page') }}"
                    class="text-sm text-blue-600 hover:text-blue-800 underline">
@@ -169,9 +170,8 @@
 
     <!-- 고객 목록 테이블 -->
     <div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-        {% if customers %}
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+        <div id="customer_list_container" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                 <tr>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -184,86 +184,179 @@
                     <th scope="col" class="relative px-6 py-3"><span class="sr-only">작업</span></th>
                 </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                {% for customer in customers %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ customer.id }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.name }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.phone }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.email }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.address }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 truncate max-w-xs" title="{{ customer.notes }}">{{ customer.notes | default('N/A', true) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.created_at | format_date if customer.created_at else 'N/A' }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex items-center space-x-2">
-                            <a href="{{ url_for('customer.edit_customer_page', customer_id=customer.id) }}"
-                               class="text-blue-600 hover:text-blue-900" title="수정">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form action="{{ url_for('customer.delete_customer_page', customer_id=customer.id) }}" method="POST"
-                                  class="inline" onsubmit="return confirm('정말로 이 고객을 삭제하시겠습니까? 관련 예약이 있다면 삭제할 수 없습니다.');">
-                                <button type="submit" class="text-red-600 hover:text-red-900" title="삭제">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                        <div class="text-center py-12">
-                            <i class="fas fa-user-times text-gray-400 text-4xl mb-4"></i>
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">
-                                {% if request.args.get('search_term') or request.args.get('has_email') or request.args.get('has_phone') or request.args.get('has_address') %}
-                                    검색 조건에 맞는 고객이 없습니다.
-                                {% else %}
-                                    등록된 고객이 없습니다.
-                                {% endif %}
-                            </h3>
-                            <p class="text-sm text-gray-500">새로운 고객을 추가하거나 검색 조건을 변경해 보세요.</p>
-                            <div class="mt-6">
-                                <a href="{{ url_for('customer.create_customer_page') }}"
-                                   class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                    <i class="fas fa-plus mr-2"></i>
-                                    새 고객 추가
-                                </a>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-                </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="text-center py-12">
-                <i class="fas fa-user-times text-gray-400 text-4xl mb-4"></i>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">
-                    {% if request.args.get('search_term') or request.args.get('has_email') or request.args.get('has_phone') or request.args.get('has_address') %}
-                        검색 조건에 맞는 고객이 없습니다.
+                <tbody id="customer_table_body" class="bg-white divide-y divide-gray-200">
+                    {% if customers %}
+                        {% for customer in customers %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ customer.id }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.phone }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.email }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.address }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 truncate max-w-xs" title="{{ customer.notes }}">{{ customer.notes | default('N/A', true) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ customer.created_at | format_date if customer.created_at else 'N/A' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex items-center space-x-2">
+                                    <a href="{{ url_for('customer.edit_customer_page', customer_id=customer.id) }}"
+                                       class="text-blue-600 hover:text-blue-900" title="수정">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form action="{{ url_for('customer.delete_customer_page', customer_id=customer.id) }}" method="POST"
+                                          class="inline" onsubmit="return confirm('정말로 이 고객을 삭제하시겠습니까? 관련 예약이 있다면 삭제할 수 없습니다.');">
+                                        <button type="submit" class="text-red-600 hover:text-red-900" title="삭제">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
                     {% else %}
-                        등록된 고객이 없습니다.
+                    <tr>
+                        <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                            <div class="text-center py-12">
+                                <i class="fas fa-user-times text-gray-400 text-4xl mb-4"></i>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">
+                                    {% if request.args.get('search_term') or request.args.get('has_email') or request.args.get('has_phone') or request.args.get('has_address') %}
+                                        검색 조건에 맞는 고객이 없습니다.
+                                    {% else %}
+                                        등록된 고객이 없습니다.
+                                    {% endif %}
+                                </h3>
+                                <p class="text-sm text-gray-500">새로운 고객을 추가하거나 검색 조건을 변경해 보세요.</p>
+                                <div class="mt-6">
+                                    <a href="{{ url_for('customer.create_customer_page') }}"
+                                       class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        <i class="fas fa-plus mr-2"></i>
+                                        새 고객 추가
+                                    </a>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
                     {% endif %}
-                </h3>
-                <p class="text-sm text-gray-500">새로운 고객을 추가하거나 검색 조건을 변경해 보세요.</p>
-                <div class="mt-6">
-                    <a href="{{ url_for('customer.create_customer_page') }}"
-                       class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        <i class="fas fa-plus mr-2"></i>
-                        새 고객 추가
-                    </a>
-                </div>
-            </div>
-        {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- 페이지네이션 -->
-    <div class="mt-6 flex justify-between items-center">
-        <div class="text-sm text-gray-700">
-            총 {{ total_customers_count }}명의 고객 중 1 - {{ customers|length }} 표시
-        </div>
-        <!-- 페이지네이션은 현재 단순화하여 제거 -->
+    <!-- 페이지네이션 컨트롤 -->
+    <div class="flex justify-center items-center space-x-2 mt-6">
+        {% if page > 1 %}
+        <a href="{{ url_for('customer.customers_page',
+                       page=page-1,
+                       per_page=per_page,
+                       search_term=request.args.get('search_term', ''),
+                       sort_by=request.args.get('sort_by', 'name'),
+                       sort_order=request.args.get('sort_order', 'asc'),
+                       has_email=request.args.get('has_email', 'false'),
+                       has_phone=request.args.get('has_phone', 'false'),
+                       has_address=request.args.get('has_address', 'false')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            이전
+        </a>
+        {% else %}
+        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+            이전
+        </span>
+        {% endif %}
+
+        <!-- "이전 10페이지" 버튼 -->
+        {% set current_block_start = ((page - 1) // 10) * 10 + 1 %}
+        {% if current_block_start > 1 %}
+        <a href="{{ url_for('customer.customers_page',
+                       page=current_block_start - 10,
+                       per_page=per_page,
+                       search_term=request.args.get('search_term', ''),
+                       sort_by=request.args.get('sort_by', 'name'),
+                       sort_order=request.args.get('sort_order', 'asc'),
+                       has_email=request.args.get('has_email', 'false'),
+                       has_phone=request.args.get('has_phone', 'false'),
+                       has_address=request.args.get('has_address', 'false')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            ... 이전 10
+        </a>
+        {% endif %}
+
+        <!-- 페이지 번호 -->
+        {% set start_page_display = ((page - 1) // 10) * 10 + 1 %}
+        {% set end_page_display = start_page_display + 9 %}
+        {% if end_page_display > total_pages %}
+            {% set end_page_display = total_pages %}
+        {% endif %}
+
+        {% for p in range(start_page_display, end_page_display + 1) %}
+            <a href="{{ url_for('customer.customers_page',
+                           page=p,
+                           per_page=per_page,
+                           search_term=request.args.get('search_term', ''),
+                           sort_by=request.args.get('sort_by', 'name'),
+                           sort_order=request.args.get('sort_order', 'asc'),
+                           has_email=request.args.get('has_email', 'false'),
+                           has_phone=request.args.get('has_phone', 'false'),
+                           has_address=request.args.get('has_address', 'false')) }}"
+               class="{% if p == page %}bg-blue-600 text-white{% else %}bg-white text-gray-700{% endif %} relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md hover:bg-gray-50">
+                {{ p }}
+            </a>
+        {% endfor %}
+
+        <!-- "다음 10페이지" 버튼 -->
+        {% set next_block_start = ((page - 1) // 10) * 10+1 %}
+        {% if next_block_start <= total_pages %}
+        <a href="{{ url_for('customer.customers_page',
+                       page=next_block_start,
+                       per_page=per_page,
+                       search_term=request.args.get('search_term', ''),
+                       sort_by=request.args.get('sort_by', 'name'),
+                       sort_order=request.args.get('sort_order', 'asc'),
+                       has_email=request.args.get('has_email', 'false'),
+                       has_phone=request.args.get('has_phone', 'false'),
+                       has_address=request.args.get('has_address', 'false')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            다음 10 ...
+        </a>
+        {% endif %}
+
+        {% if page < total_pages %}
+        <a href="{{ url_for('customer.customers_page',
+                       page=page+1,
+                       per_page=per_page,
+                       search_term=request.args.get('search_term', ''),
+                       sort_by=request.args.get('sort_by', 'name'),
+                       sort_order=request.args.get('sort_order', 'asc'),
+                       has_email=request.args.get('has_email', 'false'),
+                       has_phone=request.args.get('has_phone', 'false'),
+                       has_address=request.args.get('has_address', 'false')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            다음
+        </a>
+        {% else %}
+        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+            다음
+        </span>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterForm = document.getElementById('customer_filter_form');
+        const currentPageInput = document.getElementById('current_page_input');
+
+        filterForm.addEventListener('submit', function(event) {
+            currentPageInput.value = 1; // 검색 시 항상 1페이지로 재설정
+        });
+
+        // 초기화 버튼 클릭 시 페이지 번호 초기화 및 URL에서 reset_page 파라미터 제거
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('reset_page') === 'true') {
+            currentPageInput.value = 1;
+            urlParams.delete('reset_page');
+            const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+            history.replaceState({}, '', newUrl);
+        }
+    });
+</script>
 {% endblock %}

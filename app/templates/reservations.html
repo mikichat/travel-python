@@ -76,7 +76,7 @@
 
     <!-- 검색 폼 -->
     <div class="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-        <form method="GET" action="{{ url_for('reservation.reservations_page') }}" class="space-y-4">
+        <form id="reservation_filter_form" method="GET" action="{{ url_for('reservation.reservations_page') }}" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- 고객명 검색 -->
                 <div>
@@ -143,7 +143,7 @@
             <!-- 검색 버튼 -->
             <div class="flex items-center justify-between">
                 <div class="flex space-x-3">
-                    <button type="submit" 
+                    <button type="submit" id="search_button"
                             class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         <i class="fas fa-search mr-2"></i>
                         검색
@@ -156,20 +156,20 @@
                 </div>
                 
                 <!-- 검색 결과 개수 -->
-                {% if reservations %}
                 <div class="text-sm text-gray-600">
-                    총 <span class="font-medium">{{ reservations|length }}</span>개의 예약이 검색되었습니다.
+                    총 <span class="font-medium" id="total_reservations_count">{{ total_reservations_count }}</span>개의 예약이 검색되었습니다.
                 </div>
-                {% endif %}
             </div>
+            <input type="hidden" name="page" id="current_page_input" value="{{ page }}">
+            <input type="hidden" name="per_page" id="per_page_input" value="{{ per_page }}">
+            <input type="hidden" name="reset_page" id="reset_page_on_filter" value="true">
         </form>
 </div>
 
     <!-- 예약 목록 테이블 -->
     <div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-        {% if reservations %}
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+        <div id="reservation_list_container" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -185,7 +185,8 @@
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody id="reservation_table_body" class="bg-white divide-y divide-gray-200">
+                        {% if reservations %}
                         {% for reservation in reservations %}
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ reservation.id }}</td>
@@ -223,35 +224,153 @@
                             </td>
                         </tr>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                            <div class="text-center py-12">
+                                <i class="fas fa-calendar-times text-gray-400 text-4xl mb-4"></i>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2">
+                                    {% if request.args.get('customer_name') or request.args.get('schedule_title') or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
+                                        검색 결과가 없습니다
+                                    {% else %}
+                                        예약이 없습니다
+                                    {% endif %}
+                                </h3>
+                                <p class="text-gray-600 mb-4">
+                                    {% if request.args.get('customer_name') or request.args.get('schedule_title') or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
+                                        검색 조건을 변경해보세요.
+                                    {% else %}
+                                        아직 등록된 예약이 없습니다.
+                                    {% endif %}
+                                </p>
+                                {% if not (request.args.get('customer_name') or request.args.get('schedule_title') or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to')) %}
+                                <a href="{{ url_for('reservation.create_reservation_page') }}" 
+                                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    첫 예약 생성하기
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 페이지네이션 컨트롤 -->
+    <div class="flex justify-center items-center space-x-2 mt-6">
+        {% if page > 1 %}
+        <a href="{{ url_for('reservation.reservations_page',
+                       page=page-1,
+                       per_page=per_page,
+                       customer_name=request.args.get('customer_name', ''),
+                       schedule_title=request.args.get('schedule_title', ''),
+                       status=request.args.get('status', ''),
+                       date_from=request.args.get('date_from', ''),
+                       date_to=request.args.get('date_to', '')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            이전
+        </a>
         {% else %}
-            <div class="text-center py-12">
-                <i class="fas fa-calendar-times text-gray-400 text-4xl mb-4"></i>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">
-                    {% if request.args.get('customer_name') or request.args.get('schedule_title') or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
-                        검색 결과가 없습니다
-                    {% else %}
-                        예약이 없습니다
-                    {% endif %}
-                </h3>
-                <p class="text-gray-600 mb-4">
-                    {% if request.args.get('customer_name') or request.args.get('schedule_title') or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
-                        검색 조건을 변경해보세요.
-                    {% else %}
-                        아직 등록된 예약이 없습니다.
-                    {% endif %}
-                </p>
-                {% if not (request.args.get('customer_name') or request.args.get('schedule_title') or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to')) %}
-                <a href="{{ url_for('reservation.create_reservation_page') }}" 
-                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                    <i class="fas fa-plus mr-2"></i>
-                    첫 예약 생성하기
-                </a>
-                {% endif %}
-            </div>
+        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+            이전
+        </span>
+        {% endif %}
+
+        <!-- "이전 10페이지" 버튼 -->
+        {% set current_block_start = ((page - 1) // 10) * 10 + 1 %}
+        {% if current_block_start > 1 %}
+        <a href="{{ url_for('reservation.reservations_page',
+                       page=current_block_start - 10,
+                       per_page=per_page,
+                       customer_name=request.args.get('customer_name', ''),
+                       schedule_title=request.args.get('schedule_title', ''),
+                       status=request.args.get('status', ''),
+                       date_from=request.args.get('date_from', ''),
+                       date_to=request.args.get('date_to', '')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            ... 이전 10
+        </a>
+        {% endif %}
+
+        <!-- 페이지 번호 -->
+        {% set start_page_display = ((page - 1) // 10) * 10 + 1 %}
+        {% set end_page_display = start_page_display + 9 %}
+        {% if end_page_display > total_pages %}
+            {% set end_page_display = total_pages %}
+        {% endif %}
+
+        {% for p in range(start_page_display, end_page_display + 1) %}
+            <a href="{{ url_for('reservation.reservations_page',
+                           page=p,
+                           per_page=per_page,
+                           customer_name=request.args.get('customer_name', ''),
+                           schedule_title=request.args.get('schedule_title', ''),
+                           status=request.args.get('status', ''),
+                           date_from=request.args.get('date_from', ''),
+                           date_to=request.args.get('date_to', '')) }}"
+               class="{% if p == page %}bg-blue-600 text-white{% else %}bg-white text-gray-700{% endif %} relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md hover:bg-gray-50">
+                {{ p }}
+            </a>
+        {% endfor %}
+
+        <!-- "다음 10페이지" 버튼 -->
+        {% set next_block_start = ((page - 1) // 10) * 11 %}
+        {% if next_block_start <= total_pages %}
+        <a href="{{ url_for('reservation.reservations_page',
+                       page=next_block_start,
+                       per_page=per_page,
+                       customer_name=request.args.get('customer_name', ''),
+                       schedule_title=request.args.get('schedule_title', ''),
+                       status=request.args.get('status', ''),
+                       date_from=request.args.get('date_from', ''),
+                       date_to=request.args.get('date_to', '')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            다음 10 ...
+        </a>
+        {% endif %}
+
+        {% if page < total_pages %}
+        <a href="{{ url_for('reservation.reservations_page',
+                       page=page+1,
+                       per_page=per_page,
+                       customer_name=request.args.get('customer_name', ''),
+                       schedule_title=request.args.get('schedule_title', ''),
+                       status=request.args.get('status', ''),
+                       date_from=request.args.get('date_from', ''),
+                       date_to=request.args.get('date_to', '')) }}"
+           class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            다음
+        </a>
+        {% else %}
+        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-50 cursor-not-allowed">
+            다음
+        </span>
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterForm = document.getElementById('reservation_filter_form');
+        const currentPageInput = document.getElementById('current_page_input');
+
+        filterForm.addEventListener('submit', function(event) {
+            currentPageInput.value = 1; // 검색 시 항상 1페이지로 재설정
+        });
+
+        // 초기화 버튼 클릭 시 페이지 번호 초기화 및 URL에서 reset_page 파라미터 제거
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('reset_page') === 'true') {
+            currentPageInput.value = 1;
+            urlParams.delete('reset_page');
+            const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+            history.replaceState({}, '', newUrl);
+        }
+    });
+</script>
 {% endblock %}

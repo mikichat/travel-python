@@ -33,82 +33,172 @@ def customers_page():
         has_email = request.args.get('has_email') == 'true'
         has_phone = request.args.get('has_phone') == 'true'
         has_address = request.args.get('has_address') == 'true'
-        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 30, type=int)
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # 기본 쿼리
+
+        # 전체 고객 수 가져오기 (페이지네이션을 위해)
+        count_query = 'SELECT COUNT(*) FROM customers'
+        count_conditions = []
+        count_params = []
+
+        if search_term:
+            count_conditions.append("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ? OR notes LIKE ?)")
+            search_pattern = f"%{search_term}%"
+            count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
+
+        if has_email:
+            count_conditions.append("email IS NOT NULL AND email != ''")
+
+        if has_phone:
+            count_conditions.append("phone IS NOT NULL AND phone != ''")
+
+        if has_address:
+            count_conditions.append("address IS NOT NULL AND address != ''")
+
+        if count_conditions:
+            count_query += " WHERE " + " AND ".join(count_conditions)
+
+        cursor.execute(count_query, count_params)
+        total_customers_count = cursor.fetchone()[0]
+
+        # 총 페이지 수 계산
+        total_pages = (total_customers_count + per_page - 1) // per_page
+        if page < 1: page = 1
+        if page > total_pages and total_pages > 0: page = total_pages
+
+        offset = (page - 1) * per_page
+
         query = 'SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers'
-        
-        # WHERE 조건 구성
+
         conditions = []
         params = []
-        
+
         if search_term:
             conditions.append("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ? OR notes LIKE ?)")
             search_pattern = f"%{search_term}%"
             params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
-        
+
         if has_email:
             conditions.append("email IS NOT NULL AND email != ''")
-        
+
         if has_phone:
             conditions.append("phone IS NOT NULL AND phone != ''")
-        
+
         if has_address:
             conditions.append("address IS NOT NULL AND address != ''")
-        
-        # WHERE 절 추가
+
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        
-        # 정렬
+
         valid_sort_fields = ['name', 'email', 'created_at', 'phone', 'address']
         if sort_by not in valid_sort_fields:
             sort_by = 'created_at'
-        
+
         sort_direction = 'DESC' if sort_order == 'desc' else 'ASC'
-        query += f" ORDER BY {sort_by} {sort_direction}"
-        
-        # 쿼리 실행
+        query += f" ORDER BY {sort_by} {sort_direction} LIMIT ? OFFSET ?"
+        params.extend([per_page, offset])
+
         cursor.execute(query, params)
         customers = cursor.fetchall()
         conn.close()
-        
-        # sqlite3.Row 객체를 딕셔너리로 변환
-        customers_list = []
-        for customer in customers:
-            customer_dict = dict(customer)
-            customers_list.append(customer_dict)
-        
-        # 페이지네이션 변수들 설정 (현재는 단순화)
-        total_customers_count = len(customers_list)
-        current_page = 1
-        items_per_page = 20
-        total_pages = 1
-        
-        return render_template('customers.html', 
+
+        customers_list = [dict(customer) for customer in customers]
+
+        return render_template('customers.html',
                              customers=customers_list,
                              total_customers_count=total_customers_count,
-                             current_page=current_page,
-                             items_per_page=items_per_page,
+                             search_term=search_term,
+                             sort_by=sort_by,
+                             sort_order=sort_order,
+                             has_email=has_email,
+                             has_phone=has_phone,
+                             has_address=has_address,
+                             page=page,
+                             per_page=per_page,
                              total_pages=total_pages)
     except Exception as e:
         print(f'고객 목록 조회 오류: {e}')
         return render_template('customers.html', error='고객 목록을 불러오는 중 오류가 발생했습니다.')
 
-@customer_bp.route('/api/customers', methods=['GET'])
+@customer_bp.route('/api/customers/paginated', methods=['GET'])
 @jwt_required(current_app)
-def get_customers():
-    """고객 목록 API"""
+def get_paginated_customers_api():
+    """페이지네이션 및 검색/정렬을 지원하는 고객 목록 API"""
     try:
+        offset = request.args.get('offset', type=int, default=0)
+        limit = request.args.get('limit', type=int, default=30)
+        search_term = request.args.get('search_term', '').strip()
+        sort_by = request.args.get('sort_by', 'created_at')
+        sort_order = request.args.get('sort_order', 'desc')
+        has_email = request.args.get('has_email') == 'true'
+        has_phone = request.args.get('has_phone') == 'true'
+        has_address = request.args.get('has_address') == 'true'
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers ORDER BY created_at DESC')
+
+        # 전체 고객 수 가져오기
+        count_query = 'SELECT COUNT(*) FROM customers'
+        count_conditions = []
+        count_params = []
+
+        if search_term:
+            count_conditions.append("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ? OR notes LIKE ?)")
+            search_pattern = f"%{search_term}%"
+            count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
+
+        if has_email:
+            count_conditions.append("email IS NOT NULL AND email != ''")
+
+        if has_phone:
+            count_conditions.append("phone IS NOT NULL AND phone != ''")
+
+        if has_address:
+            count_conditions.append("address IS NOT NULL AND address != ''")
+
+        if count_conditions:
+            count_query += " WHERE " + " AND ".join(count_conditions)
+
+        cursor.execute(count_query, count_params)
+        total_customers_count = cursor.fetchone()[0]
+
+        query = 'SELECT id, name, phone, email, address, notes, created_at, updated_at FROM customers'
+
+        conditions = []
+        params = []
+
+        if search_term:
+            conditions.append("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ? OR notes LIKE ?)")
+            search_pattern = f"%{search_term}%"
+            params.extend([search_pattern, search_pattern, search_pattern, search_pattern, search_pattern])
+
+        if has_email:
+            conditions.append("email IS NOT NULL AND email != ''")
+
+        if has_phone:
+            conditions.append("phone IS NOT NULL AND phone != ''")
+
+        if has_address:
+            conditions.append("address IS NOT NULL AND address != ''")
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        valid_sort_fields = ['name', 'email', 'created_at', 'phone', 'address']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'created_at'
+
+        sort_direction = 'DESC' if sort_order == 'desc' else 'ASC'
+        query += f" ORDER BY {sort_by} {sort_direction} LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
         customers = cursor.fetchall()
         conn.close()
 
-        # 컬럼 이름을 camelCase로 변환
         customers_list = []
         for customer in customers:
             customer_data = dict(customer)
@@ -116,10 +206,18 @@ def get_customers():
             customer_data['updatedAt'] = customer_data.pop('updated_at')
             customers_list.append(customer_data)
 
-        return jsonify(customers_list)
+        return jsonify(customers_list=customers_list, total_count=total_customers_count)
     except Exception as e:
-        print(f'고객 조회 실패: {e}')
-        raise APIError('고객 조회 중 오류가 발생했습니다.', 500)
+        print(f'고객 페이지네이션 API 조회 실패: {e}')
+        raise APIError('고객 목록 조회 중 오류가 발생했습니다.', 500)
+
+@customer_bp.route('/api/customers', methods=['GET'])
+@jwt_required(current_app)
+def get_customers():
+    """고객 목록 API (기존) - 이제 사용되지 않거나 다른 목적으로 사용될 수 있음"""
+    # 이 API는 이제 사용되지 않거나, 전체 목록이 필요한 경우에만 호출될 수 있습니다.
+    # pagination API를 사용하는 것이 좋습니다.
+    return get_paginated_customers_api(offset=0, limit=100000) # 더미 값으로 무한대를 대체합니다.
 
 @customer_bp.route('/api/customers', methods=['POST'])
 @jwt_required(current_app)
