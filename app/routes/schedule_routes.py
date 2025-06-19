@@ -9,6 +9,7 @@ from app.utils.filters import format_date, format_datetime, format_currency
 from app.utils.audit import log_schedule_change
 from app.utils.excel_utils import export_schedules_to_excel, import_schedules_from_excel
 import sqlite3
+from app.utils import ValidationError
 
 schedule_bp = Blueprint('schedule', __name__)
 
@@ -640,48 +641,36 @@ def import_schedules_excel():
 @jwt_required(current_app)
 def create_schedule_page():
     if request.method == 'POST':
-        # 폼 데이터 가져오기
-        title = request.form.get('title')
-        description = request.form.get('description', '')
-        start_date = request.form.get('start_date')
-        end_date = request.form.get('end_date')
-        destination = request.form.get('destination')
+        # 폼 데이터 가져오기 및 위생 처리
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        start_date = request.form.get('start_date', '').strip()
+        end_date = request.form.get('end_date', '').strip()
+        destination = request.form.get('destination', '').strip()
         price = request.form.get('price', 0)
         max_people = request.form.get('max_people', 1)
-        status = request.form.get('status', 'Active')
-        duration = request.form.get('duration', '')
-        region = request.form.get('region', '')
-        meeting_date = request.form.get('meeting_date', '')
-        meeting_time = request.form.get('meeting_time', '')
-        meeting_place = request.form.get('meeting_place', '')
-        manager = request.form.get('manager', '')
-        reservation_maker = request.form.get('reservation_maker', '')
-        reservation_maker_contact = request.form.get('reservation_maker_contact', '')
-        important_docs = request.form.get('important_docs', '')
-        currency_info = request.form.get('currency_info', '')
-        other_items = request.form.get('other_items', '')
-        memo = request.form.get('memo', '')
+        status = request.form.get('status', 'Active').strip()
+        duration = request.form.get('duration', '').strip()
+        region = request.form.get('region', '').strip()
+        meeting_date = request.form.get('meeting_date', '').strip()
+        meeting_time = request.form.get('meeting_time', '').strip()
+        meeting_place = request.form.get('meeting_place', '').strip()
+        manager = request.form.get('manager', '').strip()
+        reservation_maker = request.form.get('reservation_maker', '').strip()
+        reservation_maker_contact = request.form.get('reservation_maker_contact', '').strip()
+        important_docs = request.form.get('important_docs', '').strip()
+        currency_info = request.form.get('currency_info', '').strip()
+        other_items = request.form.get('other_items', '').strip()
+        memo = request.form.get('memo', '').strip()
 
         # 필수 필드 검증
-        errors = {}
-        if not title:
-            errors['title'] = '일정 제목은 필수입니다.'
-        if not start_date:
-            errors['start_date'] = '출발일은 필수입니다.'
-        if not end_date:
-            errors['end_date'] = '도착일은 필수입니다.'
-        if not destination:
-            errors['destination'] = '목적지는 필수입니다.'
-
-        if errors:
-            return render_template('create_schedule.html', errors=errors, error='필수 정보를 모두 입력해주세요.')
-
-        # 가격과 최대 인원 숫자 변환
+        if not title or not start_date or not end_date or not destination:
+            raise ValidationError('필수 정보를 모두 입력해주세요.')
         try:
             price = float(price) if price else 0
             max_people = int(max_people) if max_people else 1
         except ValueError:
-            return render_template('create_schedule.html', error='가격과 최대 인원은 숫자로 입력해주세요.')
+            raise ValidationError('가격과 최대 인원은 숫자로 입력해주세요.')
 
         conn = get_db_connection()
         cursor = conn.cursor()

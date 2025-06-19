@@ -9,6 +9,7 @@ from app.utils.filters import format_date, format_datetime
 from app.utils.audit import log_customer_change
 from app.utils.excel_utils import export_customers_to_excel, import_customers_from_excel
 import sqlite3
+from app.utils import ValidationError
 
 customer_bp = Blueprint('customer', __name__)
 
@@ -486,14 +487,16 @@ def export_customers_csv():
 def create_customer_page():
     """고객 생성 페이지"""
     if request.method == 'POST':
-        name = request.form.get('name')
-        phone = request.form.get('phone')
-        email = request.form.get('email', '')
-        address = request.form.get('address', '')
-        notes = request.form.get('notes', '')
+        # 폼 데이터 가져오기 및 위생 처리
+        name = request.form.get('name', '').strip()
+        phone = request.form.get('phone', '').strip()
+        email = request.form.get('email', '').strip()
+        address = request.form.get('address', '').strip()
+        notes = request.form.get('notes', '').strip()
 
+        # 필수 필드 검증
         if not name or not phone:
-            return render_template('create_customer.html', error='이름과 전화번호는 필수입니다.')
+            raise ValidationError('이름과 전화번호는 필수입니다.')
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -559,14 +562,16 @@ def edit_customer_page(customer_id):
     conn.close()
 
     if request.method == 'POST':
-        name = request.form.get('name')
-        phone = request.form.get('phone')
-        email = request.form.get('email', '')
-        address = request.form.get('address', '')
-        notes = request.form.get('notes', '')
+        # 폼 데이터 가져오기 및 위생 처리
+        name = request.form.get('name', '').strip()
+        phone = request.form.get('phone', '').strip()
+        email = request.form.get('email', '').strip()
+        address = request.form.get('address', '').strip()
+        notes = request.form.get('notes', '').strip()
 
+        # 필수 필드 검증
         if not name or not phone:
-            return render_template('edit_customer.html', customer=customer, error='이름과 전화번호는 필수입니다.')
+            raise ValidationError('이름과 전화번호는 필수입니다.')
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -662,9 +667,10 @@ def import_customers_excel():
             flash('파일을 선택해주세요.', 'error')
             return redirect(request.url)
         
-        if not file.filename.endswith(('.xlsx', '.xls')):
-            flash('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'error')
-            return redirect(request.url)
+        # 파일 업로드 시 확장자 체크 강화
+        allowed_ext = ('.xlsx', '.xls')
+        if not file.filename.lower().endswith(allowed_ext):
+            raise ValidationError('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.')
         
         # 파일 내용 읽기
         file_content = file.read()

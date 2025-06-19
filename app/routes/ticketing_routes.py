@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import hashlib
 import uuid
+from app.utils import ValidationError
 
 ticketing_bp = Blueprint('ticketing', __name__)
 
@@ -93,19 +94,25 @@ def get_paginated_ticketing_api():
 @jwt_required(current_app)
 def create_ticketing():
     if request.method == 'POST':
-        airline_type = request.form['airline_type']
-        flight_type = request.form['flight_type']
-        ticketing_status = request.form['ticketing_status']
-        ticket_code = request.form['ticket_code']
-        memo = request.form.get('memo', '')
-        
+        airline_type = request.form['airline_type'].strip()
+        flight_type = request.form['flight_type'].strip()
+        ticketing_status = request.form['ticketing_status'].strip()
+        ticket_code = request.form['ticket_code'].strip()
+        memo = request.form.get('memo', '').strip()
+        # 필수 필드 검증
+        if not airline_type or not flight_type or not ticketing_status or not ticket_code:
+            raise ValidationError('필수 정보를 모두 입력해주세요.')
+        # 파일 업로드 확장자 체크 및 파일명 위생 처리
         uploaded_passport_paths = []
         private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
         os.makedirs(private_upload_folder, exist_ok=True)
-
         for passport_file in request.files.getlist('passport_attachment'):
             if passport_file.filename != '':
-                file_extension = os.path.splitext(passport_file.filename)[1]
+                file_extension = os.path.splitext(passport_file.filename)[1].lower()
+                allowed_ext = ('.png', '.jpg', '.jpeg', '.pdf')
+                if file_extension not in allowed_ext:
+                    raise ValidationError('여권 첨부파일은 PNG, JPG, JPEG, PDF만 허용됩니다.')
+                safe_filename = os.path.basename(passport_file.filename)
                 hashed_filename = hashlib.sha256(uuid.uuid4().bytes).hexdigest() + file_extension
                 full_file_path = os.path.join(private_upload_folder, hashed_filename)
                 passport_file.save(full_file_path)
@@ -220,13 +227,10 @@ def restore_ticketing(ticketing_id):
 def view_passport(ticketing_id, filename):
     ticketing = Ticketing.get_by_id(ticketing_id)
     if not ticketing or filename not in ticketing.passport_attachment_paths or ticketing.deleted_at is not None:
-        flash('여권 이미지를 찾을 수 없거나 접근 권한이 없습니다.', 'danger')
-        return redirect(url_for('ticketing.ticketing_page'))
-
-    private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
+        raise ValidationError('여권 이미지를 찾을 수 없거나 접근 권한이 없습니다.')
+    # 파일명 위생 처리
+    safe_filename = os.path.basename(filename)
     
-    # 보안을 위해 파일 이름 유효성 검사 (폴더 구조 변경 시 필요)
-    # os.path.basename을 사용하여 경로 조작을 방지
-    safe_filename = os.path.basename(filename) # 이미 해시된 파일명이므로, 추가적인 보안 검사는 DB 조회로 충분
+    private_upload_folder = os.path.join(current_app.root_path, 'data', 'private_uploads')
     
     return send_from_directory(private_upload_folder, safe_filename) 

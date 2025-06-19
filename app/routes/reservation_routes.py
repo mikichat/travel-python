@@ -9,6 +9,7 @@ from app.utils.filters import format_date, format_datetime, format_currency, get
 from app.utils.audit import log_reservation_change
 from app.utils.excel_utils import export_reservations_to_excel, import_reservations_from_excel
 import sqlite3
+from app.utils import ValidationError
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -718,42 +719,23 @@ def create_reservation_page():
     today_date = datetime.now().isoformat().split('T')[0]
 
     if request.method == 'POST':
-        # 폼 데이터 가져오기
-        customer_id = request.form.get('customer_id')
-        schedule_id = request.form.get('schedule_id')
-        status = request.form.get('status', 'Pending')
-        booking_date = request.form.get('booking_date')
+        # 폼 데이터 가져오기 및 위생 처리
+        customer_id = request.form.get('customer_id', '').strip()
+        schedule_id = request.form.get('schedule_id', '').strip()
+        status = request.form.get('status', 'Pending').strip()
+        booking_date = request.form.get('booking_date', '').strip()
         number_of_people = request.form.get('number_of_people', 1)
         total_price = request.form.get('total_price', 0)
-        notes = request.form.get('notes', '')
+        notes = request.form.get('notes', '').strip()
 
         # 필수 필드 검증
-        errors = {}
-        if not customer_id:
-            errors['customer_id'] = '고객을 선택해주세요.'
-        if not schedule_id:
-            errors['schedule_id'] = '일정을 선택해주세요.'
-        # booking_date는 이제 기본값이 설정되므로, 여기서는 검증을 제거하거나 필요에 따라 조정
-        # if not booking_date:
-        #     errors['booking_date'] = '예약일을 입력해주세요.'
-
-        if errors:
-            # 고객과 일정 목록을 가져와서 템플릿에 전달
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('SELECT id, name, phone FROM customers ORDER BY name LIMIT 30 OFFSET 0')
-            customers = cursor.fetchall()
-            cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date LIMIT 30 OFFSET 0')
-            schedules = cursor.fetchall()
-            conn.close()
-            return render_template('create_reservation.html', customers=customers, schedules=schedules, errors=errors, error='필수 정보를 모두 입력해주세요.', today_date=today_date)
-
-        # 숫자 변환
+        if not customer_id or not schedule_id:
+            raise ValidationError('필수 정보를 모두 입력해주세요.')
         try:
             number_of_people = int(number_of_people) if number_of_people else 1
             total_price = float(total_price) if total_price else 0
         except ValueError:
-            return render_template('create_reservation.html', error='인원수와 가격은 숫자로 입력해주세요.', today_date=today_date)
+            raise ValidationError('인원수와 가격은 숫자로 입력해주세요.')
 
         conn = get_db_connection()
         cursor = conn.cursor()

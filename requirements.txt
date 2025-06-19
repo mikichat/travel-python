@@ -5,3 +5,5 @@ flask_jwt_extended
 pandas
 python-dotenv
 openpyxl 
+WTForms
+email-validator 
