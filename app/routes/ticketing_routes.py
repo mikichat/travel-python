@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, jsonify, session
 from app.models.ticketing_model import Ticketing
 from app.utils.auth import jwt_required
 from datetime import datetime
@@ -6,6 +6,7 @@ import os
 import hashlib
 import uuid
 from app.utils import ValidationError
+from app.utils.audit import log_ticketing_change
 
 ticketing_bp = Blueprint('ticketing', __name__)
 
@@ -123,6 +124,9 @@ def create_ticketing():
                                   passport_attachment_path=','.join(uploaded_passport_paths), memo=memo,
                                   created_at=datetime.now().isoformat(), updated_at=datetime.now().isoformat())
         new_ticketing.save()
+        # 변경 로그 기록 (CREATE)
+        changed_by = session.get('username', 'unknown')
+        log_ticketing_change(new_ticketing.id, 'CREATE', 'all', '', f'{airline_type}, {flight_type}, {ticketing_status}, {ticket_code}', changed_by)
         flash('발권 정보가 성공적으로 추가되었습니다!', 'success')
         return redirect(url_for('ticketing.ticketing_page'))
     
@@ -174,6 +178,15 @@ def edit_ticketing(ticketing_id):
 
         ticketing.passport_attachment_paths = current_passport_paths # 업데이트된 경로 리스트 할당
 
+        # 변경 로그 기록 (UPDATE)
+        old_ticketing = Ticketing.get_by_id(ticketing_id)
+        changed_by = session.get('username', 'unknown')
+        fields = ['airline_type', 'flight_type', 'ticketing_status', 'ticket_code', 'memo', 'passport_attachment_path']
+        for field in fields:
+            old_value = getattr(old_ticketing, field) if hasattr(old_ticketing, field) else ''
+            new_value = getattr(ticketing, field) if hasattr(ticketing, field) else ''
+            if old_value != new_value:
+                log_ticketing_change(ticketing_id, 'UPDATE', field, old_value, new_value, changed_by)
         ticketing.save()
         flash('발권 정보가 성공적으로 업데이트되었습니다!', 'success')
         return redirect(url_for('ticketing.ticketing_page'))
@@ -211,7 +224,6 @@ def restore_ticketing(ticketing_id):
         # 감사 로그 기록
         # log_ticketing_change(ticketing_id, 'RESTORE', 'deleted_at', ticketing.deleted_at, None, 'admin')
         # 위 코드는 log_ticketing_change 함수에 맞게 수정 필요. 현재는 log_change 직접 호출.
-        from app.utils.audit import log_ticketing_change
         log_ticketing_change(ticketing_id, 'RESTORE', 'deleted_at', ticketing.deleted_at, None, 'admin')
 
         flash('발권 정보가 성공적으로 복원되었습니다.', 'success')

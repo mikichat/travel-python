@@ -161,6 +161,28 @@ def initialize_database():
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
         )
     """)
-    
+
+    # companies 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT,
+            address TEXT,
+            notes TEXT,
+            items TEXT,  -- 항공,호텔,교통,식사,가이드,옵션투어,보험,비자 (콤마구분)
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            deleted_at TEXT
+        )
+    """)
+    cursor.execute("PRAGMA table_info(companies)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'deleted_at' not in columns:
+        cursor.execute("""
+            ALTER TABLE companies ADD COLUMN deleted_at TEXT
+        """)
+
     conn.commit()
     conn.close() 

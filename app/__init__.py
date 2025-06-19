@@ -10,6 +10,7 @@ from app.routes.reservation_routes import reservation_bp
 from app.routes.dashboard_routes import dashboard_bp
 from app.routes.audit_routes import audit_bp
 from app.routes.ticketing_routes import ticketing_bp
+from app.routes.company_routes import company_bp
 from app.utils.filters import register_filters
 import logging
 
@@ -78,6 +79,7 @@ def create_app():
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(audit_bp, url_prefix='/audit')
     app.register_blueprint(ticketing_bp, url_prefix='/ticketing')
+    app.register_blueprint(company_bp, url_prefix='/companies')
     
     @app.route('/')
     def index():
