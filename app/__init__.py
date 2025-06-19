@@ -11,11 +11,22 @@ from app.routes.dashboard_routes import dashboard_bp
 from app.routes.audit_routes import audit_bp
 from app.routes.ticketing_routes import ticketing_bp
 from app.utils.filters import register_filters
+import logging
 
 def create_app():
     """
     Flask 애플리케이션 팩토리 함수
     """
+    # 로깅 설정
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(name)s %(message)s',
+        handlers=[
+            logging.FileHandler('app.log', encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    
     app = Flask(__name__)
     
     # 기본 설정
