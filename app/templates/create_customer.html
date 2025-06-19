@@ -49,6 +49,27 @@
                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                 </div>
 
+                <div class="mb-4">
+                    <label for="passport_number" class="block text-gray-700 text-sm font-bold mb-2">여권번호:</label>
+                    <input type="text" name="passport_number" id="passport_number" value="{{ request.form.get('passport_number', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Passport Number">
+                </div>
+                <div class="mb-4">
+                    <label for="last_name_eng" class="block text-gray-700 text-sm font-bold mb-2">영문 성(Last Name):</label>
+                    <input type="text" name="last_name_eng" id="last_name_eng" value="{{ request.form.get('last_name_eng', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="LASTNAME">
+                </div>
+                <div class="mb-4">
+                    <label for="first_name_eng" class="block text-gray-700 text-sm font-bold mb-2">영문 이름(First Name):</label>
+                    <input type="text" name="first_name_eng" id="first_name_eng" value="{{ request.form.get('first_name_eng', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="FIRSTNAME">
+                </div>
+                <div class="mb-4">
+                    <label for="expiry_date" class="block text-gray-700 text-sm font-bold mb-2">여권 만료일:</label>
+                    <input type="date" name="expiry_date" id="expiry_date" value="{{ request.form.get('expiry_date', '') }}"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
                 <div class="md:col-span-2 mb-4">
                     <label for="notes" class="block text-gray-700 text-sm font-bold mb-2">메모:</label>
                     <textarea name="notes" id="notes"

@@ -505,15 +505,38 @@ def create_customer_page():
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (name, phone, email, address, notes, current_time, current_time))
             conn.commit()
-            
             # 새로 생성된 고객 ID 가져오기
             new_customer_id = cursor.lastrowid
-            
+
+            # 여권 정보 저장/수정 (일부 필드만 입력해도 저장)
+            passport_number = request.form.get('passport_number', '')
+            last_name_eng = request.form.get('last_name_eng', '')
+            first_name_eng = request.form.get('first_name_eng', '')
+            expiry_date = request.form.get('expiry_date', '')
+            any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date])
+            cursor.execute('SELECT id FROM passport_info WHERE customer_id = ?', (new_customer_id,))
+            passport_row = cursor.fetchone()
+            print(f"[DEBUG] passport_info 입력값: customer_id={new_customer_id}, passport_number={passport_number}, last_name_eng={last_name_eng}, first_name_eng={first_name_eng}, expiry_date={expiry_date}")
+            if any_passport_field:
+                if passport_row:
+                    print(f"[DEBUG] passport_info UPDATE 시도")
+                    cursor.execute("""
+                        UPDATE passport_info
+                        SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, updated_at = ?
+                        WHERE customer_id = ?
+                    """, (passport_number, last_name_eng, first_name_eng, expiry_date, current_time, new_customer_id))
+                else:
+                    print(f"[DEBUG] passport_info INSERT 시도")
+                    cursor.execute("""
+                        INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (new_customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, current_time, current_time))
+            conn.commit()
             conn.close()
             return redirect(url_for('customer.customers_page'))
         except Exception as e:
             conn.close()
-            print(f'고객 등록 오류: {e}')
+            print(f'[ERROR] 고객 등록/수정 오류: {e}')
             return render_template('create_customer.html', error='고객 등록 중 오류가 발생했습니다.')
 
     return render_template('create_customer.html')
@@ -530,6 +553,13 @@ def edit_customer_page(customer_id):
 
     if not customer:
         return render_template('customers.html', error='고객을 찾을 수 없습니다.')
+
+    # 여권 정보 불러오기
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM passport_info WHERE customer_id = ?', (customer_id,))
+    passport_info = cursor.fetchone()
+    conn.close()
 
     if request.method == 'POST':
         name = request.form.get('name')
@@ -570,15 +600,39 @@ def edit_customer_page(customer_id):
                 WHERE id = ?
             """, (name, phone, email, address, notes, current_time, customer_id))
             conn.commit()
-            
+
+            # 여권 정보 저장/수정 (일부 필드만 입력해도 저장)
+            passport_number = request.form.get('passport_number', '')
+            last_name_eng = request.form.get('last_name_eng', '')
+            first_name_eng = request.form.get('first_name_eng', '')
+            expiry_date = request.form.get('expiry_date', '')
+            any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date])
+            cursor.execute('SELECT id FROM passport_info WHERE customer_id = ?', (customer_id,))
+            passport_row = cursor.fetchone()
+            print(f"[DEBUG] passport_info 입력값: customer_id={customer_id}, passport_number={passport_number}, last_name_eng={last_name_eng}, first_name_eng={first_name_eng}, expiry_date={expiry_date}")
+            if any_passport_field:
+                if passport_row:
+                    print(f"[DEBUG] passport_info UPDATE 시도")
+                    cursor.execute("""
+                        UPDATE passport_info
+                        SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, updated_at = ?
+                        WHERE customer_id = ?
+                    """, (passport_number, last_name_eng, first_name_eng, expiry_date, current_time, customer_id))
+                else:
+                    print(f"[DEBUG] passport_info INSERT 시도")
+                    cursor.execute("""
+                        INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, current_time, current_time))
+            conn.commit()
             conn.close()
             return redirect(url_for('customer.customers_page'))
         except Exception as e:
             conn.close()
-            print(f'고객 수정 오류: {e}')
+            print(f'[ERROR] 고객 수정 오류: {e}')
             return render_template('edit_customer.html', customer=customer, error='고객 수정 중 오류가 발생했습니다.')
 
-    return render_template('edit_customer.html', customer=customer)
+    return render_template('edit_customer.html', customer=customer, passport_info=passport_info)
 
 @customer_bp.route('/export-excel')
 @jwt_required(current_app)
