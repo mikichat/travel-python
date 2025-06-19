@@ -8,7 +8,8 @@
 - **사용자 인증**: JWT(JSON Web Token) 기반의 안전한 사용자 등록 및 로그인 시스템
 - **고객 관리**: 고객 정보 생성, 조회, 수정 및 삭제 기능
 - **여행 일정 관리**: 여행 일정 생성, 조회, 수정 및 삭제 기능
-- **예약 관리**: 여행 예약 생성, 조회, 수정 및 삭제 기능
+- **예약 관리**: 여행 예약 생성, 조회, 수정 및 삭제 기능 (새로운 예약 코드 형식 지원)
+- **공개 예약 조회**: 예약 코드를 통해 로그인 없이 개별 예약 정보 조회 기능
 - **발권 관리**: 항공 발권 정보 생성, 조회, 수정 및 삭제 기능 (항공사, 비행 유형, 진행 상태, 코드, 여권 첨부, 메모 포함)
 - **데이터 내보내기**: 고객, 일정, 예약 데이터를 CSV 파일로 내보내는 기능
 - **반응형 UI**: Tailwind CSS를 활용한 현대적이고 반응형 웹 인터페이스
@@ -38,6 +39,7 @@ travel-python/
 │   │   ├── schedule_routes.py   # 일정 관리 라우트
 │   │   ├── reservation_routes.py # 예약 관리 라우트
 │   │   ├── ticketing_routes.py  # 발권 관리 라우트
+│   │   ├── public_routes.py     # 공개 라우트 (예약 조회)
 │   │   └── audit_routes.py      # 변경 로그 라우트
 │   ├── models/                  # 데이터 모델 (향후 확장)
 │   │   ├── __init__.py
@@ -49,12 +51,14 @@ travel-python/
 │   │   └── filters.py           # 템플릿 필터 함수들
 │   ├── templates/               # HTML 템플릿
 │   │   ├── base.html            # 기본 레이아웃
+│   │   ├── public_base.html     # 공개 페이지 기본 레이아웃
 │   │   ├── login.html           # 로그인 페이지
 │   │   ├── register.html        # 회원가입 페이지
 │   │   ├── dashboard.html       # 대시보드 페이지
 │   │   ├── customers.html       # 고객 관리 페이지
 │   │   ├── schedules.html       # 일정 관리 페이지
 │   │   ├── reservations.html    # 예약 관리 페이지
+│   │   ├── view_reservation.html # 예약 상세 조회 페이지
 │   │   ├── ticketing.html       # 발권 목록 페이지
 │   │   ├── create_ticketing.html # 새 발권 추가 페이지
 │   │   ├── edit_ticketing.html  # 발권 정보 편집 페이지
