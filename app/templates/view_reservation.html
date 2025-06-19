@@ -1,20 +1,96 @@
-{% extends "base.html" %}
+{% extends "public_base.html" %}
 {% block content %}
-  <div class="container mt-5">
-    <h2>예약 정보 조회</h2>
+  <div class="bg-white p-8 rounded-lg shadow-xl max-w-2xl mx-auto my-8">
+    <img src="{{ url_for('static', filename='uploads/passport_20250617211050_스크린샷 2025-06-10 032805.png') }}" alt="Reservation Image" class="w-full h-48 object-cover mb-6 rounded-lg shadow-inner">
+    <h2 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">예약 정보</h2>
     {% if reservation %}
-      <ul class="list-group mt-4">
-        <li class="list-group-item"><strong>예약자명:</strong> {{ reservation.customer_id }}</li>
-        <li class="list-group-item"><strong>일정ID:</strong> {{ reservation.schedule_id }}</li>
-        <li class="list-group-item"><strong>예약일:</strong> {{ reservation.booking_date }}</li>
-        <li class="list-group-item"><strong>예약코드:</strong> {{ reservation.reservation_code }}</li>
-        <li class="list-group-item"><strong>상태:</strong> {{ reservation.status }}</li>
-        <li class="list-group-item"><strong>인원수:</strong> {{ reservation.number_of_people }}</li>
-        <li class="list-group-item"><strong>총금액:</strong> {{ reservation.total_price }}</li>
-        <li class="list-group-item"><strong>메모:</strong> {{ reservation.notes }}</li>
-      </ul>
+      <div class="space-y-4">
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-user-circle text-blue-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">예약자명</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.customer_name }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-plane-departure text-green-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">일정 제목</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.schedule_title }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-calendar-alt text-purple-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">예약일</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.booking_date }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-code text-orange-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">예약코드</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.reservation_code }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-info-circle text-teal-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">상태</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.status }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-users text-indigo-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">인원수</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.number_of_people }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-dollar-sign text-yellow-600 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">총금액</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.total_price | format_currency }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-calendar-day text-rose-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">여행 시작일</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.travel_start_date }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-calendar-check text-pink-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">여행 종료일</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.travel_end_date }}</p>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-md shadow-sm border border-gray-200 flex items-center">
+          <i class="fas fa-sticky-note text-gray-500 text-xl mr-3"></i>
+          <div>
+            <p class="text-sm text-gray-500 font-medium">메모</p>
+            <p class="text-lg font-semibold text-gray-800">{{ reservation.notes }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-8 text-center">
+        <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+          <i class="fas fa-print mr-2"></i> 인쇄하기
+        </button>
+      </div>
     {% else %}
-      <div class="alert alert-warning mt-4">예약 정보를 찾을 수 없습니다.</div>
+      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-center" role="alert">
+        <strong class="font-bold">오류:</strong>
+        <span class="block sm:inline">예약 정보를 찾을 수 없습니다. 예약 코드를 확인해주세요.</span>
+      </div>
     {% endif %}
   </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // 인쇄 기능은 브라우저 자체 기능을 사용하므로 별도 JS 필요 없음
+</script>
 {% endblock %} 

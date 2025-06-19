@@ -888,17 +888,4 @@ def edit_reservation_page(reservation_id):
             print(f'예약 수정 오류: {e}')
             return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='예약 수정 중 오류가 발생했습니다.')
     
-    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules)
-
-@reservation_bp.route('/<string:reservation_code>')
-def view_reservation_by_code(reservation_code):
-    # 6자리, 3번째가 '-'인 예약코드만 허용
-    if len(reservation_code) == 6 and reservation_code[2] == '-':
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM reservations WHERE reservation_code = ? AND deleted_at IS NULL', (reservation_code,))
-        reservation = cursor.fetchone()
-        conn.close()
-        if reservation:
-            return render_template('view_reservation.html', reservation=dict(reservation))
-    return render_template('errors/404.html'), 404 
+    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules) 

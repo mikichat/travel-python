@@ -11,6 +11,7 @@ from app.routes.dashboard_routes import dashboard_bp
 from app.routes.audit_routes import audit_bp
 from app.routes.ticketing_routes import ticketing_bp
 from app.routes.company_routes import company_bp
+from app.routes.public_routes import public_bp
 from app.utils.filters import register_filters
 import logging
 
@@ -75,11 +76,12 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(customer_bp, url_prefix='/customers')
     app.register_blueprint(schedule_bp, url_prefix='/schedules')
-    app.register_blueprint(reservation_bp, url_prefix='/r')
+    app.register_blueprint(reservation_bp, url_prefix='/reservations')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(audit_bp, url_prefix='/audit')
     app.register_blueprint(ticketing_bp, url_prefix='/ticketing')
     app.register_blueprint(company_bp, url_prefix='/companies')
+    app.register_blueprint(public_bp, url_prefix='/v')
     
     @app.route('/')
     def index():
