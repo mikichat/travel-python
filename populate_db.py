@@ -21,6 +21,7 @@ def populate_sample_data():
     cursor.execute("DELETE FROM customers")
     cursor.execute("DELETE FROM schedules")
     cursor.execute("DELETE FROM reservations")
+    cursor.execute("DELETE FROM companies")
     conn.commit()
 
     print("기존 데이터 삭제 완료.")
@@ -82,6 +83,22 @@ def populate_sample_data():
     
     conn.commit()
     print("예약 샘플 데이터 삽입 완료.")
+
+    # 5. 업체(렌드사) 샘플 데이터 삽입
+    companies_samples = [
+        ("코리아항공", "02-123-4567", "air@koreaair.com", "서울 강서구 공항대로 123", "국내외 항공 전문", "항공,호텔", now, now),
+        ("월드호텔네트워크", "02-234-5678", "info@worldhotel.com", "서울 중구 남대문로 456", "글로벌 호텔 체인", "호텔,식사,가이드", now, now),
+        ("제주렌트카", "064-789-1234", "rent@jejurent.com", "제주 제주시 공항로 789", "제주도 교통/렌트 전문", "교통,보험", now, now),
+        ("투어가이드코리아", "02-345-6789", "guide@tourkorea.com", "서울 종로구 인사동 101", "전문 가이드 및 옵션투어", "가이드,옵션투어,비자", now, now),
+        ("글로벌여행보험", "02-456-7890", "insure@globalins.com", "서울 영등포구 국제금융로 202", "여행자 보험 전문", "보험,비자", now, now),
+    ]
+    for name, phone, email, address, notes, items, created_at, updated_at in companies_samples:
+        cursor.execute("INSERT INTO companies (name, phone, email, address, notes, items, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                       (name, phone, email, address, notes, items, created_at, updated_at))
+        company_id = cursor.lastrowid
+        log_change(cursor, 'companies', company_id, 'CREATE', 'all', None, f'업체 생성: {name}', 'system', '샘플 데이터 생성')
+    conn.commit()
+    print("업체(렌드사) 샘플 데이터 삽입 완료.")
 
     conn.close()
     print("샘플 데이터 생성 완료.")
