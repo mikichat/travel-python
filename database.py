@@ -146,6 +146,21 @@ def initialize_database():
         cursor.execute("""
             ALTER TABLE ticketing ADD COLUMN deleted_at TEXT
         """)
+
+    # passport_info 테이블 생성 (고객 연동)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS passport_info (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            passport_number TEXT NOT NULL,
+            last_name_eng TEXT NOT NULL,
+            first_name_eng TEXT NOT NULL,
+            expiry_date TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        )
+    """)
     
     conn.commit()
     conn.close() 
