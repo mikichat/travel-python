@@ -516,17 +516,14 @@ def create_customer_page():
             any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date])
             cursor.execute('SELECT id FROM passport_info WHERE customer_id = ?', (new_customer_id,))
             passport_row = cursor.fetchone()
-            print(f"[DEBUG] passport_info 입력값: customer_id={new_customer_id}, passport_number={passport_number}, last_name_eng={last_name_eng}, first_name_eng={first_name_eng}, expiry_date={expiry_date}")
             if any_passport_field:
                 if passport_row:
-                    print(f"[DEBUG] passport_info UPDATE 시도")
                     cursor.execute("""
                         UPDATE passport_info
                         SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, updated_at = ?
                         WHERE customer_id = ?
                     """, (passport_number, last_name_eng, first_name_eng, expiry_date, current_time, new_customer_id))
                 else:
-                    print(f"[DEBUG] passport_info INSERT 시도")
                     cursor.execute("""
                         INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -609,17 +606,14 @@ def edit_customer_page(customer_id):
             any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date])
             cursor.execute('SELECT id FROM passport_info WHERE customer_id = ?', (customer_id,))
             passport_row = cursor.fetchone()
-            print(f"[DEBUG] passport_info 입력값: customer_id={customer_id}, passport_number={passport_number}, last_name_eng={last_name_eng}, first_name_eng={first_name_eng}, expiry_date={expiry_date}")
             if any_passport_field:
                 if passport_row:
-                    print(f"[DEBUG] passport_info UPDATE 시도")
                     cursor.execute("""
                         UPDATE passport_info
                         SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, updated_at = ?
                         WHERE customer_id = ?
                     """, (passport_number, last_name_eng, first_name_eng, expiry_date, current_time, customer_id))
                 else:
-                    print(f"[DEBUG] passport_info INSERT 시도")
                     cursor.execute("""
                         INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
