@@ -75,7 +75,7 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(customer_bp, url_prefix='/customers')
     app.register_blueprint(schedule_bp, url_prefix='/schedules')
-    app.register_blueprint(reservation_bp, url_prefix='/reservations')
+    app.register_blueprint(reservation_bp, url_prefix='/r')
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(audit_bp, url_prefix='/audit')
     app.register_blueprint(ticketing_bp, url_prefix='/ticketing')

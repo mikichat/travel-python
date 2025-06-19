@@ -10,6 +10,7 @@ from app.utils.audit import log_reservation_change
 from app.utils.excel_utils import export_reservations_to_excel, import_reservations_from_excel
 import sqlite3
 from app.utils import ValidationError
+from app.utils import generate_reservation_code
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -343,18 +344,18 @@ def create_reservation():
         if not customer_id or not schedule_id:
             raise APIError('고객과 일정 정보는 필수입니다.', 400)
 
+        reservation_code = generate_reservation_code()
         conn = get_db_connection()
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
 
         cursor.execute("""
-            INSERT INTO reservations (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, current_time))
+            INSERT INTO reservations (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, reservation_code, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, reservation_code, current_time, current_time))
         conn.commit()
 
         new_reservation_id = cursor.lastrowid
-        
         cursor.execute('SELECT * FROM reservations WHERE id = ?', (new_reservation_id,))
         new_reservation = cursor.fetchone()
         conn.close()
@@ -737,15 +738,15 @@ def create_reservation_page():
         except ValueError:
             raise ValidationError('인원수와 가격은 숫자로 입력해주세요.')
 
+        reservation_code = generate_reservation_code()
         conn = get_db_connection()
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
-        
         try:
             cursor.execute("""
-                INSERT INTO reservations (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, current_time))
+                INSERT INTO reservations (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, reservation_code, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, reservation_code, current_time, current_time))
             conn.commit()
             conn.close()
             return redirect(url_for('reservation.reservations_page'))
@@ -887,4 +888,17 @@ def edit_reservation_page(reservation_id):
             print(f'예약 수정 오류: {e}')
             return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='예약 수정 중 오류가 발생했습니다.')
     
-    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules) 
+    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules)
+
+@reservation_bp.route('/<string:reservation_code>')
+def view_reservation_by_code(reservation_code):
+    # 6자리, 3번째가 '-'인 예약코드만 허용
+    if len(reservation_code) == 6 and reservation_code[2] == '-':
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM reservations WHERE reservation_code = ? AND deleted_at IS NULL', (reservation_code,))
+        reservation = cursor.fetchone()
+        conn.close()
+        if reservation:
+            return render_template('view_reservation.html', reservation=dict(reservation))
+    return render_template('errors/404.html'), 404 

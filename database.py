@@ -93,6 +93,7 @@ def initialize_database():
             number_of_people INTEGER NOT NULL,
             total_price REAL NOT NULL,
             notes TEXT,
+            reservation_code TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             deleted_at TEXT,
@@ -102,9 +103,9 @@ def initialize_database():
     """)
     cursor.execute("PRAGMA table_info(reservations)")
     columns = [col[1] for col in cursor.fetchall()]
-    if 'deleted_at' not in columns:
+    if 'reservation_code' not in columns:
         cursor.execute("""
-            ALTER TABLE reservations ADD COLUMN deleted_at TEXT
+            ALTER TABLE reservations ADD COLUMN reservation_code TEXT
         """)
 
     # audit_logs 테이블 생성 (변경 로그)
