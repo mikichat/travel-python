@@ -14,6 +14,7 @@ from app.routes.company_routes import company_bp
 from app.routes.public_routes import public_bp
 from app.utils.filters import register_filters
 import logging
+from app.utils.mail import init_mail
 
 def create_app():
     """
@@ -81,10 +82,13 @@ def create_app():
     app.register_blueprint(audit_bp, url_prefix='/audit')
     app.register_blueprint(ticketing_bp, url_prefix='/ticketing')
     app.register_blueprint(company_bp, url_prefix='/companies')
-    app.register_blueprint(public_bp, url_prefix='/v')
+    app.register_blueprint(public_bp)
     
     @app.route('/')
     def index():
         return redirect(url_for('dashboard.dashboard'))
+    
+    # Initialize Flask-Mail
+    init_mail(app)
     
     return app 

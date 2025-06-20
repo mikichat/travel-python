@@ -107,6 +107,16 @@ def initialize_database():
         cursor.execute("""
             ALTER TABLE reservations ADD COLUMN reservation_code TEXT
         """)
+    if 'email_dispatch_code' not in columns:
+        cursor.execute("""
+            ALTER TABLE reservations ADD COLUMN email_dispatch_code TEXT
+        """
+        )
+    if 'email_dispatch_code_expires_at' not in columns:
+        cursor.execute("""
+            ALTER TABLE reservations ADD COLUMN email_dispatch_code_expires_at TEXT
+        """
+        )
 
     # audit_logs 테이블 생성 (변경 로그)
     cursor.execute("""
