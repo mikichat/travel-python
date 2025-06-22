@@ -127,7 +127,6 @@ def create_ticketing():
         # 변경 로그 기록 (CREATE)
         changed_by = session.get('username', 'unknown')
         log_ticketing_change(new_ticketing.id, 'CREATE', 'all', '', f'{airline_type}, {flight_type}, {ticketing_status}, {ticket_code}', changed_by)
-        flash('발권 정보가 성공적으로 추가되었습니다!', 'success')
         return redirect(url_for('ticketing.ticketing_page'))
     
     return render_template('create_ticketing.html')
