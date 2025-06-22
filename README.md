@@ -93,7 +93,24 @@ cd travel-python
 pip install -r requirements.txt
 ```
 
-### 3. 환경 변수 설정 (선택사항)
+### 3. Tesseract OCR 설치 (Windows)
+
+여권 사진에서 정보를 추출하려면 Tesseract OCR 엔진이 시스템에 설치되어 있어야 합니다.
+
+1.  **Tesseract OCR 다운로드**: 다음 링크에서 Windows용 설치 프로그램을 다운로드합니다.
+    *   [Tesseract OCR for Windows](https://tesseract-ocr.github.io/tessdoc/Downloads.html) (현재 권장 버전: `tesseract-ocr-w64-setup-5.5.0.20241111.exe`와 유사한 파일명)
+    https://github.com/tesseract-ocr/tesseract/releases/download/5.5.0/tesseract-ocr-w64-setup-5.5.0.20241111.exe
+2.  **설치 진행**:
+    *   다운로드한 `.exe` 파일을 실행하여 설치를 시작합니다.
+    *   설치 과정 중 **"Add Tesseract to Path"** 옵션을 반드시 체크하여 시스템 환경 변수에 Tesseract 실행 파일 경로가 자동으로 추가되도록 합니다. (이 단계를 건너뛰었다면 수동으로 PATH를 설정해야 합니다.)
+    *   한국어 등 추가 언어 팩이 필요하면 설치 시 선택합니다.
+3.  **설치 확인**: 명령 프롬프트(CMD) 또는 PowerShell을 열고 다음 명령어를 입력하여 Tesseract가 올바르게 설치되었는지 확인합니다.
+    ```bash
+    tesseract --version
+    ```
+    버전 정보가 출력되면 성공적으로 설치된 것입니다.
+
+### 4. 환경 변수 설정 (선택사항)
 
 프로덕션 환경에서는 반드시 강력한 시크릿 키를 설정하는 것이 좋습니다.
 
@@ -111,19 +128,19 @@ export FLASK_SECRET_KEY="your_flask_secret_key"
 export FLASK_ENV="development"
 ```
 
-### 4. 데이터베이스 초기화
+### 5. 데이터베이스 초기화
 
 ```bash
 python database.py
 ```
 
-### 5. 샘플 데이터 생성 (선택사항)
+### 6. 샘플 데이터 생성 (선택사항)
 
 ```bash
 python populate_db.py
 ```
 
-### 6. 애플리케이션 실행
+### 7. 애플리케이션 실행
 
 ```bash
 python run.py
