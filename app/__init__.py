@@ -32,6 +32,9 @@ def create_app():
     
     app = Flask(__name__)
     
+    # 파일 업로드 폴더 설정
+    app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+    
     # 기본 설정
     app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET', 'your-secret-key')
     app.config['FLASK_SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))

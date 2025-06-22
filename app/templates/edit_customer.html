@@ -48,7 +48,7 @@
 
         <div class="bg-white shadow-md rounded-lg p-6 mb-6">
             <h2 class="text-2xl font-semibold mb-4 text-gray-700">고객 정보 수정</h2>
-            <form action="{{ url_for('customer.edit_customer_page', customer_id=customer.id) }}" method="POST">
+            <form action="{{ url_for('customer.edit_customer_page', customer_id=customer.id) }}" method="POST" enctype="multipart/form-data">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="mb-4">
                         <label for="name" class="block text-gray-700 text-sm font-bold mb-2">이름:</label>
@@ -102,6 +102,27 @@
                         <label for="expiry_date" class="block text-gray-700 text-sm font-bold mb-2">여권 만료일:</label>
                         <input type="date" name="expiry_date" id="expiry_date" value="{{ passport_info.expiry_date if passport_info else '' }}"
                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                    <div class="mb-4 md:col-span-2">
+                        <label for="passport_photo" class="block text-gray-700 text-sm font-bold mb-2">여권 사진:</label>
+                        {% if passport_info and passport_info.passport_photo_path %}
+                            <div class="mb-2">
+                                <img src="{{ url_for('static', filename='uploads/' + passport_info.passport_photo_path) }}" alt="Passport Photo" class="max-w-xs h-auto rounded-md shadow">
+                                <p class="text-sm text-gray-500 mt-1">현재 파일: {{ passport_info.passport_photo_path }}</p>
+                                <input type="checkbox" name="delete_passport_photo" id="delete_passport_photo" value="true" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                                <label for="delete_passport_photo" class="text-sm font-medium text-red-700">현재 여권 사진 삭제</label>
+                            </div>
+                        {% endif %}
+                        <input type="file" name="passport_photo" id="passport_photo"
+                               class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        {% if errors and errors.passport_photo %}
+                            <p class="text-red-500 text-xs italic">{{ errors.passport_photo }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="md:col-span-2 flex justify-end mb-4">
+                        <button type="button" id="extractPassportInfoBtn" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                            <i class="fas fa-magic mr-2"></i>여권 사진에서 추출
+                        </button>
                     </div>
 
                     <div class="md:col-span-2 mb-4">
@@ -172,4 +193,84 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const extractBtn = document.getElementById('extractPassportInfoBtn');
+    const passportPhotoInput = document.getElementById('passport_photo');
+    const passportNumberInput = document.getElementById('passport_number');
+    const lastNameEngInput = document.getElementById('last_name_eng');
+    const firstNameEngInput = document.getElementById('first_name_eng');
+    const expiryDateInput = document.getElementById('expiry_date');
+
+    // 기존 여권 사진 경로 (템플릿 변수에서 가져옴)
+    const existingPassportPhotoPath = "{{ passport_info.passport_photo_path if passport_info and passport_info.passport_photo_path else '' }}";
+
+    if (extractBtn) {
+        extractBtn.addEventListener('click', function() {
+            let fileToSend = null;
+            let formData = new FormData();
+
+            console.log('existingPassportPhotoPath:', existingPassportPhotoPath); // 디버그 로그 추가
+
+            if (passportPhotoInput.files.length > 0) {
+                fileToSend = passportPhotoInput.files[0];
+                formData.append('passport_photo', fileToSend);
+                console.log('Appending new passport_photo file:', fileToSend.name); // 디버그 로그 추가
+            } else if (existingPassportPhotoPath) {
+                // 기존 파일 경로를 사용할 경우
+                formData.append('existing_photo_path', existingPassportPhotoPath);
+                console.log('Appending existing_photo_path:', existingPassportPhotoPath); // 디버그 로그 추가
+            } else {
+                alert('새 여권 사진 파일을 선택하거나, 이미 업로드된 여권 사진이 있는 고객을 선택해주세요.');
+                return;
+            }
+
+            // formData 내용 확인 (디버깅용)
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}:`, value);
+            }
+
+            fetch('{{ url_for('customer.extract_passport_info_api') }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json().then(data => ({
+                status: response.status,
+                body: data
+            })))
+            .then(({ status, body }) => {
+                if (status === 200) {
+                    const extractedData = body.extracted_data;
+                    if (extractedData) {
+                        if (extractedData.passport_number) {
+                            passportNumberInput.value = extractedData.passport_number;
+                        }
+                        if (extractedData.last_name_eng) {
+                            lastNameEngInput.value = extractedData.last_name_eng;
+                        }
+                        if (extractedData.first_name_eng) {
+                            firstNameEngInput.value = extractedData.first_name_eng;
+                        }
+                        if (extractedData.expiry_date) {
+                            expiryDateInput.value = extractedData.expiry_date;
+                        }
+                        alert(body.message || '여권 정보 추출 성공!');
+                    } else {
+                        alert(body.message || '추출된 정보가 없습니다.');
+                    }
+                } else {
+                    alert('오류: ' + (body.error || '여권 정보 추출에 실패했습니다.'));
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                alert('네트워크 오류 또는 서버 응답 실패: ' + error);
+            });
+        });
+    }
+});
+</script>
 {% endblock %} 

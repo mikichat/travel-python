@@ -6,7 +6,7 @@
 
 - **대시보드**: 실시간 통계, 최근 예약, 시스템 알림을 한눈에 확인
 - **사용자 인증**: JWT(JSON Web Token) 기반의 안전한 사용자 등록 및 로그인 시스템
-- **고객 관리**: 고객 정보 생성, 조회, 수정 및 삭제 기능
+- **고객 관리**: 고객 정보 생성, 조회, 수정 및 삭제 기능, **여권 파일 첨부 및 정보 추출 기능 (OCR 기반)**
 - **여행 일정 관리**: 여행 일정 생성, 조회, 수정 및 삭제 기능
 - **예약 관리**: 여행 예약 생성, 조회, 수정 및 삭제 기능 (새로운 예약 코드 형식 지원)
 - **공개 예약 조회**: 예약 코드를 통해 로그인 없이 개별 예약 정보 조회 기능
@@ -23,6 +23,7 @@
 - **데이터베이스**: SQLite (SQLite3)
 - **인증**: bcrypt, PyJWT
 - **프론트엔드**: HTML, Jinja2, Tailwind CSS, Font Awesome
+- **OCR**: pytesseract (Tesseract OCR 엔진 시스템 설치 필요)
 - **아키텍처**: Blueprint 패턴, Application Factory 패턴
 - **유틸리티**: 템플릿 필터, 오류 처리, 인증 데코레이터
 
@@ -48,7 +49,8 @@ travel-python/
 │   │   ├── __init__.py
 │   │   ├── errors.py            # 오류 처리 및 APIError 클래스
 │   │   ├── auth.py              # JWT 인증 데코레이터
-│   │   └── filters.py           # 템플릿 필터 함수들
+│   │   ├── filters.py           # 템플릿 필터 함수들
+│   │   └── ocr_utils.py         # 여권 정보 OCR 추출 유틸리티
 │   ├── templates/               # HTML 템플릿
 │   │   ├── base.html            # 기본 레이아웃
 │   │   ├── public_base.html     # 공개 페이지 기본 레이아웃
@@ -65,11 +67,13 @@ travel-python/
 │   │   └── components/          # 재사용 가능한 컴포넌트
 │   └── static/                  # 정적 파일 (CSS, JS, 이미지)
 │       ├── css/
-│       └── js/
+│       ├── js/
+│       └── uploads/             # 업로드된 여권 사진 등
 ├── config.py                    # 환경별 설정 관리
 ├── run.py                       # 애플리케이션 실행 진입점
 ├── database.py                  # 데이터베이스 연결 및 초기화
 ├── populate_db.py               # 샘플 데이터 생성 (선택사항)
+├── populate_reservation_codes.py # 예약 코드 샘플 데이터 생성
 ├── requirements.txt             # Python 의존성 목록
 └── README.md                    # 프로젝트 문서
 ```
@@ -235,6 +239,7 @@ def protected_route():
 -   `GET /api/customers/<id>` - 특정 고객 조회
 -   `PUT /api/customers/<id>` - 고객 정보 수정
 -   `DELETE /api/customers/<id>` - 고객 삭제
+-   `POST /api/customers/extract-passport-info` - 여권 사진에서 정보 추출
 -   `GET /customers/export-csv` - 고객 데이터 CSV 내보내기
 
 ### 일정 API

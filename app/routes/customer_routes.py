@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash, g
 from datetime import datetime
 import csv
 import io
@@ -9,9 +9,19 @@ from app.utils.filters import format_date, format_datetime
 from app.utils.audit import log_customer_change
 from app.utils.excel_utils import export_customers_to_excel, import_customers_from_excel
 import sqlite3
+import os
+import uuid
+from werkzeug.utils import secure_filename
 from app.utils import ValidationError
+from app.utils.ocr_utils import extract_text_from_image, extract_passport_info
 
 customer_bp = Blueprint('customer', __name__)
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # 필터 등록
 @customer_bp.app_template_filter('format_date')
@@ -485,153 +495,299 @@ def export_customers_csv():
 @customer_bp.route('/create', methods=['GET', 'POST'])
 @jwt_required(current_app)
 def create_customer_page():
-    """고객 생성 페이지"""
+    """새 고객 생성 페이지 및 처리"""
+    errors = {}
     if request.method == 'POST':
-        # 폼 데이터 가져오기 및 위생 처리
-        name = request.form.get('name', '').strip()
-        phone = request.form.get('phone', '').strip()
-        email = request.form.get('email', '').strip()
-        address = request.form.get('address', '').strip()
-        notes = request.form.get('notes', '').strip()
+        name = request.form.get('name')
+        phone = request.form.get('phone')
+        email = request.form.get('email')
+        address = request.form.get('address')
+        passport_number = request.form.get('passport_number')
+        last_name_eng = request.form.get('last_name_eng')
+        first_name_eng = request.form.get('first_name_eng')
+        expiry_date = request.form.get('expiry_date')
+        notes = request.form.get('notes')
+        passport_photo = request.files.get('passport_photo')
 
-        # 필수 필드 검증
-        if not name or not phone:
-            raise ValidationError('이름과 전화번호는 필수입니다.')
+        if not name:
+            errors['name'] = '이름은 필수입니다.'
+        if not phone:
+            errors['phone'] = '전화번호는 필수입니다.'
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        current_time = datetime.now().isoformat()
+        passport_photo_filename = None
+        current_app.logger.debug(f"Passport photo received: {bool(passport_photo)}")
+        if passport_photo and passport_photo.filename != '':
+            current_app.logger.debug(f"Passport photo filename: {passport_photo.filename}")
+            current_app.logger.debug(f"Is allowed file: {allowed_file(passport_photo.filename)}")
 
+        if passport_photo and allowed_file(passport_photo.filename):
+            filename = secure_filename(passport_photo.filename)
+            unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
+            current_app.logger.debug(f"Generated unique filename: {unique_filename}")
+            try:
+                os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+                passport_photo_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+                current_app.logger.debug(f"UPLOAD_FOLDER: {current_app.config['UPLOAD_FOLDER']}")
+                current_app.logger.debug(f"Full passport photo path: {passport_photo_path}")
+                passport_photo.save(passport_photo_path)
+                passport_photo_filename = unique_filename
+            except Exception as e:
+                errors['passport_photo'] = f'파일 저장 중 오류가 발생했습니다: {e}'
+        elif passport_photo and passport_photo.filename != '':
+            errors['passport_photo'] = '허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif, pdf만 허용)'
+
+        if errors:
+            # 오류 발생 시 JSON 응답 반환 (디버깅용)
+            return jsonify(errors=errors), 400 # HTTP 400 Bad Request
+
+        conn = None
         try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            current_time = datetime.now().isoformat()
+
+            # 고객 생성
             cursor.execute("""
-                INSERT INTO customers (name, phone, email, address, notes, created_at, updated_at)
+                INSERT INTO customers (name, email, phone, address, notes, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (name, phone, email, address, notes, current_time, current_time))
-            conn.commit()
-            # 새로 생성된 고객 ID 가져오기
-            new_customer_id = cursor.lastrowid
+            """, (name, email, phone, address, notes, current_time, current_time))
+            customer_id = cursor.lastrowid
 
-            # 여권 정보 저장/수정 (일부 필드만 입력해도 저장)
-            passport_number = request.form.get('passport_number', '')
-            last_name_eng = request.form.get('last_name_eng', '')
-            first_name_eng = request.form.get('first_name_eng', '')
-            expiry_date = request.form.get('expiry_date', '')
-            any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date])
-            cursor.execute('SELECT id FROM passport_info WHERE customer_id = ?', (new_customer_id,))
-            passport_row = cursor.fetchone()
+            passport_info_id = None
+            any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date, passport_photo_filename])
+
             if any_passport_field:
-                if passport_row:
-                    cursor.execute("""
-                        UPDATE passport_info
-                        SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, updated_at = ?
-                        WHERE customer_id = ?
-                    """, (passport_number, last_name_eng, first_name_eng, expiry_date, current_time, new_customer_id))
-                else:
-                    cursor.execute("""
-                        INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (new_customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, current_time, current_time))
-            conn.commit()
-            conn.close()
-            return redirect(url_for('customer.customers_page'))
-        except Exception as e:
-            conn.close()
-            print(f'[ERROR] 고객 등록/수정 오류: {e}')
-            return render_template('create_customer.html', error='고객 등록 중 오류가 발생했습니다.')
+                # PassportInfo 테이블에 삽입 (customer_id와 함께)
+                cursor.execute("""
+                    INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, passport_photo_path, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, passport_photo_filename, current_time, current_time))
+                passport_info_id = cursor.lastrowid
 
+                # 고객 테이블에 passport_info_id 업데이트
+                cursor.execute("""
+                    UPDATE customers SET passport_info_id = ? WHERE id = ?
+                """, (passport_info_id, customer_id))
+
+            conn.commit()
+            # g.user 객체 내용 디버그 로그 출력
+            current_app.logger.debug(f"g.user type: {type(g.user)}")
+            current_app.logger.debug(f"g.user content: {g.user}")
+
+            current_user_name = g.user['username'] if 'username' in g.user else g.user.get('username', 'unknown_user')
+            log_customer_change(customer_id, 'CREATE', 'all', None, name, current_user_name, '새 고객 생성')
+            flash('새 고객이 성공적으로 추가되었습니다.', 'success')
+            return redirect(url_for('customer.customers_page'))
+        except sqlite3.IntegrityError as e:
+            conn.rollback()
+            errors['database'] = f'데이터베이스 오류: {e}'
+            return jsonify(errors=errors), 500
+        except Exception as e:
+            if conn: conn.rollback()
+            current_app.logger.error(f"고객 생성 오류: {e}")
+            errors['general'] = f'고객 생성 중 오류가 발생했습니다: {e}'
+            return jsonify(errors=errors), 500
+        finally:
+            if conn: conn.close()
+    
     return render_template('create_customer.html')
 
 @customer_bp.route('/<int:customer_id>', methods=['GET', 'POST'])
 @jwt_required(current_app)
 def edit_customer_page(customer_id):
     """고객 수정 페이지"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, name, phone, email, address, notes FROM customers WHERE id = ?', (customer_id,))
-    customer = cursor.fetchone()
-    conn.close()
+    conn = None
+    errors = {}
+    customer = None
+    passport_info = None
 
-    if not customer:
-        return render_template('customers.html', error='고객을 찾을 수 없습니다.')
-
-    # 여권 정보 불러오기
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM passport_info WHERE customer_id = ?', (customer_id,))
-    passport_info = cursor.fetchone()
-    conn.close()
-
-    if request.method == 'POST':
-        # 폼 데이터 가져오기 및 위생 처리
-        name = request.form.get('name', '').strip()
-        phone = request.form.get('phone', '').strip()
-        email = request.form.get('email', '').strip()
-        address = request.form.get('address', '').strip()
-        notes = request.form.get('notes', '').strip()
-
-        # 필수 필드 검증
-        if not name or not phone:
-            raise ValidationError('이름과 전화번호는 필수입니다.')
-
+    try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        current_time = datetime.now().isoformat()
 
-        try:
-            # 변경된 필드 추적
-            changes = []
-            if customer['name'] != name:
-                changes.append(f"이름: {customer['name']} → {name}")
-                log_customer_change(customer_id, 'UPDATE', 'name', customer['name'], name, 'admin')
-            if customer['phone'] != phone:
-                changes.append(f"전화번호: {customer['phone']} → {phone}")
-                log_customer_change(customer_id, 'UPDATE', 'phone', customer['phone'], phone, 'admin')
-            if customer['email'] != email:
-                changes.append(f"이메일: {customer['email']} → {email}")
-                log_customer_change(customer_id, 'UPDATE', 'email', customer['email'], email, 'admin')
-            if customer['address'] != address:
-                changes.append(f"주소: {customer['address']} → {address}")
-                log_customer_change(customer_id, 'UPDATE', 'address', customer['address'], address, 'admin')
-            if customer['notes'] != notes:
-                changes.append(f"메모: {customer['notes']} → {notes}")
-                log_customer_change(customer_id, 'UPDATE', 'notes', customer['notes'], notes, 'admin')
+        # 고객 정보와 연결된 passport_info_id 가져오기
+        cursor.execute('SELECT id, name, phone, email, address, notes, passport_info_id FROM customers WHERE id = ?', (customer_id,))
+        customer = cursor.fetchone()
+
+        if not customer:
+            flash('고객을 찾을 수 없습니다.', 'error')
+            return redirect(url_for('customer.customers_page'))
+
+        # 고객 ID로 PassportInfo 가져오기 또는 생성 (만약 없다면)
+        if customer['passport_info_id']:
+            cursor.execute('SELECT * FROM passport_info WHERE id = ?', (customer['passport_info_id'],))
+            passport_info = cursor.fetchone()
+
+        if request.method == 'POST':
+            name = request.form.get('name')
+            phone = request.form.get('phone')
+            email = request.form.get('email')
+            address = request.form.get('address')
+            notes = request.form.get('notes')
+            passport_number = request.form.get('passport_number')
+            last_name_eng = request.form.get('last_name_eng')
+            first_name_eng = request.form.get('first_name_eng')
+            expiry_date = request.form.get('expiry_date')
+            delete_passport_photo = request.form.get('delete_passport_photo') == 'true'
+            passport_photo_file = request.files.get('passport_photo')
+
+            if not name:
+                errors['name'] = '이름은 필수입니다.'
+            if not phone:
+                errors['phone'] = '전화번호는 필수입니다.'
             
+            if errors:
+                # 에러 발생 시 현재 고객 및 여권 정보, 제출된 폼 데이터를 다시 템플릿으로 전달
+                return render_template('edit_customer.html', customer=customer, passport_info=passport_info, errors=errors, request_form=request.form)
+
+            current_time = datetime.now().isoformat()
+            updated_passport_photo_filename = passport_info['passport_photo_path'] if passport_info else None
+
+            current_app.logger.debug(f"Edit Customer - Passport photo received: {bool(passport_photo_file)}")
+            if passport_photo_file and passport_photo_file.filename != '':
+                current_app.logger.debug(f"Edit Customer - Passport photo filename: {passport_photo_file.filename}")
+                current_app.logger.debug(f"Edit Customer - Is allowed file: {allowed_file(passport_photo_file.filename)}")
+
+            # 기존 파일 삭제 요청 처리
+            if delete_passport_photo and updated_passport_photo_filename:
+                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], updated_passport_photo_filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    current_app.logger.debug(f"Existing passport photo deleted: {file_path}")
+                updated_passport_photo_filename = None
+
+            # 새 파일 업로드 처리
+            if passport_photo_file and allowed_file(passport_photo_file.filename):
+                filename = secure_filename(passport_photo_file.filename)
+                unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
+                current_app.logger.debug(f"Edit Customer - Generated unique filename: {unique_filename}")
+                try:
+                    os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+                    passport_photo_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+                    current_app.logger.debug(f"Edit Customer - UPLOAD_FOLDER: {current_app.config['UPLOAD_FOLDER']}")
+                    current_app.logger.debug(f"Edit Customer - Full passport photo path: {passport_photo_path}")
+                    passport_photo_file.save(passport_photo_path)
+                    updated_passport_photo_filename = unique_filename
+                    current_app.logger.debug(f"Edit Customer - New passport photo saved: {updated_passport_photo_filename}")
+                except Exception as e:
+                    errors['passport_photo'] = f'새 파일 저장 중 오류가 발생했습니다: {e}'
+            elif passport_photo_file and passport_photo_file.filename != '':
+                errors['passport_photo'] = '허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif, pdf만 허용)'
+            
+            if errors:
+                return render_template('edit_customer.html', customer=customer, passport_info=passport_info, errors=errors, request_form=request.form)
+
+            # 고객 정보 업데이트
             cursor.execute("""
                 UPDATE customers
                 SET name = ?, phone = ?, email = ?, address = ?, notes = ?, updated_at = ?
                 WHERE id = ?
             """, (name, phone, email, address, notes, current_time, customer_id))
-            conn.commit()
+            
+            passport_info_data = (
+                passport_number, last_name_eng, first_name_eng, expiry_date, updated_passport_photo_filename,
+                current_time
+            )
 
-            # 여권 정보 저장/수정 (일부 필드만 입력해도 저장)
-            passport_number = request.form.get('passport_number', '')
-            last_name_eng = request.form.get('last_name_eng', '')
-            first_name_eng = request.form.get('first_name_eng', '')
-            expiry_date = request.form.get('expiry_date', '')
-            any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date])
-            cursor.execute('SELECT id FROM passport_info WHERE customer_id = ?', (customer_id,))
-            passport_row = cursor.fetchone()
-            if any_passport_field:
-                if passport_row:
-                    cursor.execute("""
-                        UPDATE passport_info
-                        SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, updated_at = ?
-                        WHERE customer_id = ?
-                    """, (passport_number, last_name_eng, first_name_eng, expiry_date, current_time, customer_id))
-                else:
-                    cursor.execute("""
-                        INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, current_time, current_time))
+            if passport_info:
+                # 기존 여권 정보 업데이트
+                cursor.execute("""
+                    UPDATE passport_info
+                    SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, passport_photo_path = ?, updated_at = ?
+                    WHERE id = ?
+                """, (*passport_info_data, passport_info['id']))
+            else:
+                # 새 여권 정보 삽입 및 고객에 연결
+                current_app.logger.debug(f"Inserting new passport_info for customer_id: {customer_id}")
+                current_app.logger.debug(f"Passport info data: {passport_info_data}")
+                cursor.execute("""
+                    INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, passport_photo_path, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (customer_id, *passport_info_data, current_time))
+                new_passport_info_id = cursor.lastrowid
+                cursor.execute("""
+                    UPDATE customers SET passport_info_id = ? WHERE id = ?
+                """, (new_passport_info_id, customer_id))
+            
             conn.commit()
-            conn.close()
-            return redirect(url_for('customer.customers_page'))
-        except Exception as e:
-            conn.close()
-            print(f'[ERROR] 고객 수정 오류: {e}')
-            return render_template('edit_customer.html', customer=customer, error='고객 수정 중 오류가 발생했습니다.')
+            log_customer_change(
+                customer_id=customer_id,
+                action='UPDATE',
+                field_name='customer_details', # 일반적인 업데이트를 나타냄
+                old_value='N/A', # 이전 값 추적이 복잡하므로 간단히 처리
+                new_value='N/A', # 새 값 추적이 복잡하므로 간단히 처리
+                changed_by=g.user['username'], # 현재 로그인한 사용자 이름
+                details='고객 정보 및 여권 정보 업데이트'
+            )
+            flash('고객 정보가 성공적으로 업데이트되었습니다.', 'success')
+            return redirect(url_for('customer.edit_customer_page', customer_id=customer_id))
 
-    return render_template('edit_customer.html', customer=customer, passport_info=passport_info)
+    except sqlite3.IntegrityError as e:
+        if conn: conn.rollback()
+        current_app.logger.error(f"고객 수정 중 데이터베이스 무결성 오류: {e}")
+        errors['database'] = f'데이터베이스 오류: {e}'
+    except Exception as e:
+        if conn: conn.rollback()
+        current_app.logger.error(f"고객 수정 오류: {e}")
+        errors['general'] = f'고객 수정 중 오류가 발생했습니다: {e}'
+    finally:
+        if conn: conn.close()
+    
+    # 에러 발생 또는 GET 요청 시 템플릿 렌더링
+    return render_template('edit_customer.html', customer=customer, passport_info=passport_info, errors=errors, request_form=request.form if errors else None)
+
+@customer_bp.route('/api/customers/extract-passport-info', methods=['POST'])
+@jwt_required(current_app)
+def extract_passport_info_api():
+    """업로드된 여권 사진에서 정보를 추출하는 API 엔드포인트"""
+    file = request.files.get('passport_photo')
+    existing_photo_path_relative = request.form.get('existing_photo_path')
+    
+    file_path_to_ocr = None
+    temp_file_created = False
+
+    if file and file.filename != '':
+        if allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
+            file_path_to_ocr = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+            
+            os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+            file.save(file_path_to_ocr)
+            temp_file_created = True
+        else:
+            return jsonify({'error': '허용되지 않는 파일 형식입니다. (png, jpg, jpeg, gif, pdf만 허용)'}), 400
+    elif existing_photo_path_relative:
+        file_path_to_ocr = os.path.join(current_app.config['UPLOAD_FOLDER'], existing_photo_path_relative)
+        current_app.logger.debug(f"Attempting to access existing file at: {file_path_to_ocr}")
+        current_app.logger.debug(f"File exists: {os.path.exists(file_path_to_ocr)}")
+        if not os.path.exists(file_path_to_ocr):
+            return jsonify({'error': '기존 여권 사진 파일을 찾을 수 없습니다.'}), 404
+    else:
+        return jsonify({'error': '파일이 없거나 파일 이름이 없습니다.'}), 400
+
+    try:
+        # OCR을 사용하여 텍스트 추출
+        extracted_text = extract_text_from_image(file_path_to_ocr)
+        
+        # 추출된 텍스트에서 여권 정보 파싱
+        passport_data = extract_passport_info(extracted_text)
+        
+        # 임시 파일 삭제 (새로 업로드된 파일인 경우에만)
+        if temp_file_created and os.path.exists(file_path_to_ocr):
+            os.remove(file_path_to_ocr)
+
+        if not passport_data or all(value is None for value in passport_data.values()):
+            return jsonify({'message': '여권 정보를 추출할 수 없습니다. 더 선명한 사진을 사용하거나 수동으로 입력해주세요.', 'extracted_data': {}}), 200
+
+        return jsonify({'message': '여권 정보가 성공적으로 추출되었습니다.', 'extracted_data': passport_data}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"여권 정보 추출 오류: {e}")
+        # 오류 발생 시 임시 파일 삭제 시도
+        if temp_file_created and os.path.exists(file_path_to_ocr):
+            os.remove(file_path_to_ocr)
+        return jsonify({'error': f'여권 정보 추출 중 오류가 발생했습니다: {e}'}), 500
 
 @customer_bp.route('/export-excel')
 @jwt_required(current_app)

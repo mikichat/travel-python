@@ -14,7 +14,7 @@
     {% endif %}
 
     <div class="bg-white shadow-md rounded-lg p-6">
-        <form action="{{ url_for('customer.create_customer_page') }}" method="POST">
+        <form action="{{ url_for('customer.create_customer_page') }}" method="POST" enctype="multipart/form-data">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="mb-4">
                     <label for="name" class="block text-gray-700 text-sm font-bold mb-2">이름:</label>
@@ -69,6 +69,19 @@
                     <input type="date" name="expiry_date" id="expiry_date" value="{{ request.form.get('expiry_date', '') }}"
                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                 </div>
+                <div class="mb-4 md:col-span-2">
+                    <label for="passport_photo" class="block text-gray-700 text-sm font-bold mb-2">여권 사진:</label>
+                    <input type="file" name="passport_photo" id="passport_photo"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    {% if errors and errors.passport_photo %}
+                    <p class="text-red-500 text-xs italic">{{ errors.passport_photo }}</p>
+                    {% endif %}
+                </div>
+                <div class="md:col-span-2 flex justify-end mb-4">
+                    <button type="button" id="extractPassportInfoBtn" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        <i class="fas fa-magic mr-2"></i>여권 사진에서 추출
+                    </button>
+                </div>
 
                 <div class="md:col-span-2 mb-4">
                     <label for="notes" class="block text-gray-700 text-sm font-bold mb-2">메모:</label>
@@ -90,4 +103,67 @@
         </form>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const extractBtn = document.getElementById('extractPassportInfoBtn');
+    const passportPhotoInput = document.getElementById('passport_photo');
+    const passportNumberInput = document.getElementById('passport_number');
+    const lastNameEngInput = document.getElementById('last_name_eng');
+    const firstNameEngInput = document.getElementById('first_name_eng');
+    const expiryDateInput = document.getElementById('expiry_date');
+
+    if (extractBtn) {
+        extractBtn.addEventListener('click', function() {
+            if (passportPhotoInput.files.length === 0) {
+                alert('새 여권 사진 파일을 선택하거나, 이미 업로드된 여권 사진이 있는 경우 다시 업로드하여 추출해주세요.');
+                return;
+            }
+
+            const file = passportPhotoInput.files[0];
+            const formData = new FormData();
+            formData.append('passport_photo', file);
+
+            fetch("{{ url_for('customer.extract_passport_info_api') }}", {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json().then(data => ({
+                status: response.status,
+                body: data
+            })))
+            .then(({ status, body }) => {
+                if (status === 200) {
+                    const extractedData = body.extracted_data;
+                    if (extractedData) {
+                        if (extractedData.passport_number) {
+                            passportNumberInput.value = extractedData.passport_number;
+                        }
+                        if (extractedData.last_name_eng) {
+                            lastNameEngInput.value = extractedData.last_name_eng;
+                        }
+                        if (extractedData.first_name_eng) {
+                            firstNameEngInput.value = extractedData.first_name_eng;
+                        }
+                        if (extractedData.expiry_date) {
+                            expiryDateInput.value = extractedData.expiry_date;
+                        }
+                        alert(body.message || '여권 정보 추출 성공!');
+                    } else {
+                        alert(body.message || '추출된 정보가 없습니다.');
+                    }
+                } else {
+                    alert('오류: ' + (body.error || '여권 정보 추출에 실패했습니다.'));
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                alert('네트워크 오류 또는 서버 응답 실패: ' + error);
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

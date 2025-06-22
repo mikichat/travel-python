@@ -34,9 +34,11 @@ def initialize_database():
             email TEXT,
             address TEXT,
             notes TEXT,
+            passport_info_id INTEGER,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            deleted_at TEXT
+            deleted_at TEXT,
+            FOREIGN KEY (passport_info_id) REFERENCES passport_info(id) ON DELETE SET NULL
         )
     """)
     cursor.execute("PRAGMA table_info(customers)")
@@ -44,6 +46,22 @@ def initialize_database():
     if 'deleted_at' not in columns:
         cursor.execute("""
             ALTER TABLE customers ADD COLUMN deleted_at TEXT
+        """)
+    if 'passport_info_id' not in columns:
+        cursor.execute("""
+            ALTER TABLE customers ADD COLUMN passport_info_id INTEGER
+        """)
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_passport_info ON customers(passport_info_id) WHERE passport_info_id IS NOT NULL;
+        """)
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS fk_customers_passport_info
+            BEFORE INSERT ON customers
+            FOR EACH ROW BEGIN
+                SELECT RAISE(ABORT, 'Foreign key violation: passport_info_id does not exist')
+                FROM passport_info
+                WHERE NEW.passport_info_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM passport_info WHERE id = NEW.passport_info_id);
+            END;
         """)
 
     # schedules 테이블 생성
@@ -131,7 +149,7 @@ def initialize_database():
             changed_at TEXT NOT NULL,
             changed_by TEXT NOT NULL,
             details TEXT,
-            updated_at TEXT NOT NULL,
+            updated_at TEXT,
             deleted_at TEXT
         )
     """)
@@ -167,11 +185,19 @@ def initialize_database():
             last_name_eng TEXT,
             first_name_eng TEXT,
             expiry_date TEXT,
+            passport_photo_path TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
         )
     """)
+    cursor.execute("PRAGMA table_info(passport_info)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'passport_photo_path' not in columns:
+        cursor.execute("""
+            ALTER TABLE passport_info ADD COLUMN passport_photo_path TEXT
+        """
+        )
 
     # companies 테이블 생성
     cursor.execute("""

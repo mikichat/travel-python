@@ -7,9 +7,9 @@ def log_change(cursor, table_name, record_id, action, field_name, old_value, new
     """변경 로그를 데이터베이스에 기록"""
     current_time = datetime.now().isoformat()
     cursor.execute("""
-        INSERT INTO audit_logs (table_name, record_id, action, field_name, old_value, new_value, changed_at, changed_by, details)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (table_name, record_id, action, field_name, old_value, new_value, current_time, changed_by, details))
+        INSERT INTO audit_logs (table_name, record_id, action, field_name, old_value, new_value, changed_at, changed_by, details, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (table_name, record_id, action, field_name, old_value, new_value, current_time, changed_by, details, current_time))
 
 def populate_sample_data():
     conn = get_db_connection()
