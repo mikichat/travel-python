@@ -263,7 +263,6 @@ def create_customer():
         conn.commit()
         conn.close()
         
-        flash('고객이 성공적으로 추가되었습니다.', 'success')
         return redirect(url_for('customer.customers_page'))
     except APIError:
         raise
@@ -576,7 +575,6 @@ def create_customer_page():
 
             current_user_name = g.user['username'] if 'username' in g.user else g.user.get('username', 'unknown_user')
             log_customer_change(customer_id, 'CREATE', 'all', None, name, current_user_name, '새 고객 생성')
-            flash('새 고객이 성공적으로 추가되었습니다.', 'success')
             return redirect(url_for('customer.customers_page'))
         except sqlite3.IntegrityError as e:
             conn.rollback()
@@ -642,6 +640,10 @@ def edit_customer_page(customer_id):
 
             current_time = datetime.now().isoformat()
             updated_passport_photo_filename = passport_info['passport_photo_path'] if passport_info else None
+
+            # 변경 사항을 추적하기 위한 기존 고객 데이터 저장
+            old_customer_data = dict(customer)
+            old_passport_info_data = dict(passport_info) if passport_info else {}
 
             current_app.logger.debug(f"Edit Customer - Passport photo received: {bool(passport_photo_file)}")
             if passport_photo_file and passport_photo_file.filename != '':
@@ -710,15 +712,39 @@ def edit_customer_page(customer_id):
                 """, (new_passport_info_id, customer_id))
             
             conn.commit()
-            log_customer_change(
-                customer_id=customer_id,
-                action='UPDATE',
-                field_name='customer_details', # 일반적인 업데이트를 나타냄
-                old_value='N/A', # 이전 값 추적이 복잡하므로 간단히 처리
-                new_value='N/A', # 새 값 추적이 복잡하므로 간단히 처리
-                changed_by=g.user['username'], # 현재 로그인한 사용자 이름
-                details='고객 정보 및 여권 정보 업데이트'
-            )
+
+            # 변경 로그 기록
+            changed_by = g.user['username'] if 'username' in g.user else g.user.get('username', 'unknown')
+            
+            # 고객 상세 정보 필드 비교 및 로깅
+            customer_fields = ['name', 'phone', 'email', 'address', 'notes']
+            for field in customer_fields:
+                old_value = old_customer_data.get(field, '') or ''
+                new_value = request.form.get(field, '') or ''
+                if old_value != new_value:
+                    log_customer_change(customer_id, 'UPDATE', field, old_value, new_value, changed_by, f'{field} 변경')
+
+            # 여권 정보 필드 비교 및 로깅
+            passport_fields = {
+                'passport_number': passport_number,
+                'last_name_eng': last_name_eng,
+                'first_name_eng': first_name_eng,
+                'expiry_date': expiry_date,
+                'passport_photo_path': updated_passport_photo_filename
+            }
+
+            for field, new_val in passport_fields.items():
+                old_val = old_passport_info_data.get(field, '') or ''
+                # passport_photo_path는 파일명만 비교
+                if field == 'passport_photo_path':
+                    # 기존 경로에서 파일명만 추출 (full_file_path로 저장된 경우)
+                    old_filename = os.path.basename(old_val) if old_val else ''
+                    new_filename = os.path.basename(new_val) if new_val else ''
+                    if old_filename != new_filename:
+                         log_customer_change(customer_id, 'UPDATE', field, old_filename, new_filename, changed_by, f'{field} 변경')
+                elif old_val != (new_val or ''):
+                    log_customer_change(customer_id, 'UPDATE', field, old_val, (new_val or ''), changed_by, f'{field} 변경')
+
             flash('고객 정보가 성공적으로 업데이트되었습니다.', 'success')
             return redirect(url_for('customer.edit_customer_page', customer_id=customer_id))
 

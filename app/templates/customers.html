@@ -106,9 +106,9 @@
     <!-- 메시지 및 에러 표시 -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="space-y-4">
+            <div id="flash-messages" class="space-y-4">
                 {% for category, message in messages %}
-                    <div class="p-4 rounded-md {% if category == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border border-red-200 text-red-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+                    <div class="p-4 rounded-md flash-message {% if category == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif category == 'error' %}bg-red-50 border border-red-200 text-red-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}" data-category="{{ category }}">
                         <div class="flex">
                             <div class="flex-shrink-0">
                                 {% if category == 'success' %}
@@ -128,30 +128,6 @@
             </div>
         {% endif %}
     {% endwith %}
-    {% if message %}
-        <div class="p-4 rounded-md bg-green-50 border border-green-200 text-green-800">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium">{{ message }}</p>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-    {% if error %}
-        <div class="p-4 rounded-md bg-red-50 border border-red-200 text-red-800">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-circle"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium">{{ error }}</p>
-                </div>
-            </div>
-        </div>
-    {% endif %}
 
     <!-- 검색 결과 정보 -->
     {% if request.args.get('search_term') or request.args.get('has_email') or request.args.get('has_phone') or request.args.get('has_address') %}
@@ -337,9 +313,7 @@
         {% endif %}
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const filterForm = document.getElementById('customer_filter_form');
@@ -357,6 +331,17 @@
             const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
             history.replaceState({}, '', newUrl);
         }
+
+        const successMessages = document.querySelectorAll('.flash-message[data-category="success"]');
+        successMessages.forEach(function(message) {
+            setTimeout(function() {
+                message.style.transition = 'opacity 0.5s ease-out';
+                message.style.opacity = '0';
+                setTimeout(function() {
+                    message.remove();
+                }, 500); // Allow time for fade out
+            }, 3000); // 3 seconds
+        });
     });
 </script>
 {% endblock %}

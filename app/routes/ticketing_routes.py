@@ -101,7 +101,7 @@ def create_ticketing():
         ticket_code = request.form['ticket_code'].strip()
         memo = request.form.get('memo', '').strip()
         # 필수 필드 검증
-        if not airline_type or not flight_type or not ticketing_status or not ticket_code:
+        if not airline_type or not flight_type or not ticketing_status:
             raise ValidationError('필수 정보를 모두 입력해주세요.')
         # 파일 업로드 확장자 체크 및 파일명 위생 처리
         uploaded_passport_paths = []
