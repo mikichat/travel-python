@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash, g
 from datetime import datetime
 import csv
 import io
@@ -355,17 +355,34 @@ def create_reservation():
         """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, reservation_code, current_time, current_time))
         conn.commit()
 
+        # 변경 로그 기록 (CREATE)
         new_reservation_id = cursor.lastrowid
-        cursor.execute('SELECT * FROM reservations WHERE id = ?', (new_reservation_id,))
-        new_reservation = cursor.fetchone()
+        changed_by = g.user['username'] if 'username' in g.user else g.user.get('username', 'unknown')
+
+        # 각 필드에 대한 변경 로그 기록
+        fields_to_log = {
+            'customer_id': customer_id,
+            'schedule_id': schedule_id,
+            'status': status,
+            'booking_date': booking_date,
+            'number_of_people': number_of_people,
+            'total_price': total_price,
+            'notes': notes,
+            'reservation_code': reservation_code
+        }
+
+        for field_name, new_value in fields_to_log.items():
+            log_reservation_change(
+                reservation_id=new_reservation_id,
+                action='CREATE',
+                field_name=field_name,
+                old_value='',  # 신규 등록이므로 이전 값은 없음
+                new_value=str(new_value),
+                changed_by=changed_by,
+                details=f'새 예약 {field_name} 등록'
+            )
+
         conn.close()
-
-        if not new_reservation:
-            raise APIError('예약 등록 후 정보를 찾을 수 없습니다.', 500)
-
-        new_reservation_data = dict(new_reservation)
-        new_reservation_data['createdAt'] = new_reservation_data.pop('created_at')
-        new_reservation_data['updatedAt'] = new_reservation_data.pop('updated_at')
         return jsonify(new_reservation_data), 201
     except APIError:
         raise
@@ -748,6 +765,34 @@ def create_reservation_page():
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, reservation_code, current_time, current_time))
             conn.commit()
+
+            # 변경 로그 기록 (CREATE)
+            new_reservation_id = cursor.lastrowid
+            changed_by = g.user['username'] if 'username' in g.user else g.user.get('username', 'unknown')
+
+            # 각 필드에 대한 변경 로그 기록
+            fields_to_log = {
+                'customer_id': customer_id,
+                'schedule_id': schedule_id,
+                'status': status,
+                'booking_date': booking_date,
+                'number_of_people': number_of_people,
+                'total_price': total_price,
+                'notes': notes,
+                'reservation_code': reservation_code
+            }
+
+            for field_name, new_value in fields_to_log.items():
+                log_reservation_change(
+                    reservation_id=new_reservation_id,
+                    action='CREATE',
+                    field_name=field_name,
+                    old_value='',  # 신규 등록이므로 이전 값은 없음
+                    new_value=str(new_value),
+                    changed_by=changed_by,
+                    details=f'새 예약 {field_name} 등록'
+                )
+
             conn.close()
             return redirect(url_for('reservation.reservations_page'))
         except Exception as e:
