@@ -11,6 +11,9 @@ from app.utils.excel_utils import export_reservations_to_excel, import_reservati
 import sqlite3
 from app.utils import ValidationError
 from app.utils import generate_reservation_code
+import qrcode
+import base64
+from config import Config
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -836,7 +839,16 @@ def edit_reservation_page(reservation_id):
     cursor.execute('SELECT id, title, start_date, end_date FROM schedules WHERE status = "Active" ORDER BY start_date')
     schedules = cursor.fetchall()
     conn.close()
-    
+
+    # QR 코드 생성 (GET 요청 시에만)
+    qr_code_base64 = None
+    if reservation and reservation['reservation_code']:
+        qr_url = f"{Config.BASE_DOMAIN_URL}/{reservation['reservation_code']}"
+        qr = qrcode.make(qr_url)
+        buf = io.BytesIO()
+        qr.save(buf, format='PNG')
+        qr_code_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+
     if request.method == 'POST':
         # 폼 데이터 가져오기
         customer_id = request.form.get('customer_id')
@@ -857,14 +869,14 @@ def edit_reservation_page(reservation_id):
             errors['booking_date'] = '예약일을 입력해주세요.'
 
         if errors:
-            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors, error='필수 정보를 모두 입력해주세요.')
+            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors, error='필수 정보를 모두 입력해주세요.', qr_code_base64=qr_code_base64)
 
         # 숫자 변환
         try:
             number_of_people = int(number_of_people) if number_of_people else 1
             total_price = float(total_price) if total_price else 0
         except ValueError:
-            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='인원수와 가격은 숫자로 입력해주세요.')
+            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='인원수와 가격은 숫자로 입력해주세요.', qr_code_base64=qr_code_base64)
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -886,7 +898,7 @@ def edit_reservation_page(reservation_id):
 
                 if current_status_order is None or new_status_order is None:
                     flash('유효하지 않은 예약 상태입니다.', 'error')
-                    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors)
+                    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors, qr_code_base64=qr_code_base64)
                 
                 # VIP_CUSTOMER, COMPLAINT, PROCESSED 상태는 특별히 처리 (모든 상태에서 이동 가능하도록)
                 if status in ["VIP_CUSTOMER", "COMPLAINT", "PROCESSED"]:
@@ -894,7 +906,7 @@ def edit_reservation_page(reservation_id):
                     pass
                 elif abs(new_status_order - current_status_order) > 1:
                     flash('예약 상태는 한 단계씩만 변경할 수 있습니다.', 'error')
-                    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors)
+                    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, errors=errors, qr_code_base64=qr_code_base64)
 
                 changes.append(f"상태: {reservation['status']} → {status}")
                 log_reservation_change(reservation_id, 'UPDATE', 'status', reservation['status'], status, 'admin')
@@ -931,6 +943,6 @@ def edit_reservation_page(reservation_id):
         except Exception as e:
             conn.close()
             print(f'예약 수정 오류: {e}')
-            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='예약 수정 중 오류가 발생했습니다.')
+            return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, error='예약 수정 중 오류가 발생했습니다.', qr_code_base64=qr_code_base64)
     
-    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules) 
+    return render_template('edit_reservation.html', reservation=reservation, customers=customers, schedules=schedules, qr_code_base64=qr_code_base64) 

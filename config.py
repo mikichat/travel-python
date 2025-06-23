@@ -6,6 +6,9 @@ class Config:
     SECRET_KEY = os.environ.get('JWT_SECRET', 'your-secret-key')
     FLASK_SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
     
+    # 기본 도메인 URL
+    BASE_DOMAIN_URL = os.environ.get('BASE_DOMAIN_URL', 'http://localhost:5000')
+    
     # 데이터베이스 설정
     DATABASE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'travel.db')
     

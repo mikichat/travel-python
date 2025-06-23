@@ -27,7 +27,7 @@ def populate_sample_data():
     print("기존 데이터 삭제 완료.")
 
     # 1. 사용자 샘플 데이터 삽입
-    hashed_password = bcrypt.hashpw("password123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    hashed_password = bcrypt.hashpw("admin".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     now = datetime.now().isoformat()
     cursor.execute("INSERT INTO users (username, email, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
                    ("admin", "admin@example.com", hashed_password, now, now))

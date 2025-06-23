@@ -9,3 +9,4 @@ WTForms
 email-validator 
 Flask-Mail 
 pytesseract 
+qrcode 
