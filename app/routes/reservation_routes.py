@@ -14,6 +14,7 @@ from app.utils import generate_reservation_code
 import qrcode
 import base64
 from config import Config
+from app.utils.encryption_utils import encrypt_data, decrypt_data
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -833,6 +834,11 @@ def edit_reservation_page(reservation_id):
         flash('이미 삭제된 예약입니다. 복원 후 수정해주세요.', 'error')
         return redirect(url_for('reservation.reservations_page'))
     
+    # notes 필드를 복호화하여 템플릿에 전달
+    if reservation['notes']:
+        reservation = dict(reservation)
+        reservation['notes'] = decrypt_data(reservation['notes'])
+
     # 고객과 일정 목록을 가져오기 (edit 페이지는 모든 목록을 가져옴)
     cursor.execute('SELECT id, name, phone FROM customers ORDER BY name')
     customers = cursor.fetchall()
@@ -858,6 +864,9 @@ def edit_reservation_page(reservation_id):
         number_of_people = request.form.get('number_of_people', 1)
         total_price = request.form.get('total_price', 0)
         notes = request.form.get('notes', '')
+
+        # notes 필드 암호화
+        encrypted_notes = encrypt_data(notes)
 
         # 필수 필드 검증
         errors = {}
@@ -927,7 +936,7 @@ def edit_reservation_page(reservation_id):
                 UPDATE reservations
                 SET customer_id = ?, schedule_id = ?, status = ?, booking_date = ?, number_of_people = ?, total_price = ?, notes = ?, updated_at = ?
                 WHERE id = ?
-            """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, notes, current_time, reservation_id))
+            """, (customer_id, schedule_id, status, booking_date, number_of_people, total_price, encrypted_notes, current_time, reservation_id))
             conn.commit()
             
             # 전체 변경 로그 기록 (제거됨)

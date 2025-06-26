@@ -390,3 +390,17 @@ Lend Service Provider
 7.VIP고객-재구매(V.VIP고객)
 8.불만
 9.처리완료
+
+## 코드생성 명령 ##
+
+## FLASK_SECRET_KEY
+import os
+print(os.urandom(24).hex())
+
+## JWT_SECRET_KEY
+import secrets
+print(secrets.token_hex(32)) # 32바이트 (64자)의 16진수 문자열
+
+## ENCRYPTION_KEY
+from cryptography.fernet import Fernet
+print(Fernet.generate_key().decode())
