@@ -360,7 +360,7 @@ def protected_route():
 
 ## 📞 연락처
 
-프로젝트 링크: [https://github.com/yourusername/travel-python](https://github.com/yourusername/travel-python)
+프로젝트 링크: [https://github.com/mikichat/travel-python](https://github.com/mikichat/travel-python)
 
 ## 🙏 감사의 말
 
