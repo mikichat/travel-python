@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, current_app
+from flask_login import login_user, logout_user, login_required
 import bcrypt
 import jwt
 from datetime import datetime
 from database import get_db_connection
 from app.utils.errors import APIError
 from app.utils.auth import jwt_required
+from app.models.user_model import User
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -26,14 +28,13 @@ def login_page():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('SELECT id, username, password FROM users WHERE username = ?', (username,))
-        user = cursor.fetchone()
+        user_from_db = cursor.fetchone()
         conn.close()
 
-        if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-            session['logged_in'] = True
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            return redirect(url_for('auth.dashboard'))
+        if user_from_db and bcrypt.checkpw(password.encode('utf-8'), user_from_db['password'].encode('utf-8')):
+            user = User.get(user_from_db['id'])
+            login_user(user)
+            return redirect(url_for('dashboard.dashboard'))
         else:
             return render_template('login.html', error='사용자명 또는 비밀번호가 올바르지 않습니다.', username=username)
     
@@ -239,11 +240,10 @@ def register():
         raise APIError('회원가입 처리 중 오류가 발생했습니다.', 500)
 
 @auth_bp.route('/logout')
+@login_required
 def logout():
     """로그아웃"""
-    session.pop('logged_in', None)
-    session.pop('user_id', None)
-    session.pop('username', None)
+    logout_user()
     return redirect(url_for('auth.login_page'))
 
 @auth_bp.route('/dashboard')

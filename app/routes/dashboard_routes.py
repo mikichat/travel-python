@@ -2,14 +2,14 @@
 대시보드 라우트
 """
 from flask import Blueprint, render_template, current_app
-from app.utils.auth import jwt_required
+from flask_login import login_required
 from database import get_db_connection
 from datetime import datetime, timedelta
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
 @dashboard_bp.route('/')
-@jwt_required(current_app)
+@login_required
 def dashboard():
     """대시보드 메인 페이지"""
     try:
@@ -89,7 +89,7 @@ def dashboard():
         return render_template('dashboard.html', error='대시보드를 불러오는 중 오류가 발생했습니다.')
 
 @dashboard_bp.route('/api/stats')
-@jwt_required(current_app)
+@login_required
 def get_stats():
     """대시보드 통계 API"""
     try:

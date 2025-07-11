@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash, g
+from flask_login import login_required, current_user
 from datetime import datetime
 import csv
 import io
@@ -33,7 +34,7 @@ def format_datetime_filter(datetime_str):
     return format_datetime(datetime_str)
 
 @customer_bp.route('/')
-@jwt_required(current_app)
+@login_required
 def customers_page():
     """고객 목록 페이지"""
     try:
@@ -45,7 +46,15 @@ def customers_page():
         has_phone = request.args.get('has_phone') == 'true'
         has_address = request.args.get('has_address') == 'true'
         page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT items_per_page FROM user_settings WHERE user_id = ?', (current_user.id,))
+        user_setting = cursor.fetchone()
+        conn.close()
+        
+        per_page = user_setting['items_per_page'] if user_setting and user_setting['items_per_page'] else 25
+        per_page = request.args.get('per_page', per_page, type=int)
 
         conn = get_db_connection()
         cursor = conn.cursor()

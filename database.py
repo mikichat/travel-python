@@ -221,5 +221,26 @@ def initialize_database():
             ALTER TABLE companies ADD COLUMN deleted_at TEXT
         """)
 
+    # user_settings 테이블 생성
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            language TEXT DEFAULT 'ko',
+            timezone TEXT DEFAULT 'Asia/Seoul',
+            email_notifications BOOLEAN DEFAULT 1,
+            theme TEXT DEFAULT 'light',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    """)
+    cursor.execute("PRAGMA table_info(user_settings)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'items_per_page' not in columns:
+        cursor.execute("""
+            ALTER TABLE user_settings ADD COLUMN items_per_page INTEGER DEFAULT 25
+        """)
+
     conn.commit()
     conn.close() 

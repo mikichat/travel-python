@@ -2,6 +2,7 @@ from flask import Flask, redirect, url_for
 import os
 from app.utils.errors import register_error_handlers
 from flask_jwt_extended import JWTManager
+from flask_login import LoginManager
 from database import initialize_database
 from app.routes.auth_routes import auth_bp
 from app.routes.customer_routes import customer_bp
@@ -12,9 +13,11 @@ from app.routes.audit_routes import audit_bp
 from app.routes.ticketing_routes import ticketing_bp
 from app.routes.company_routes import company_bp
 from app.routes.public_routes import public_bp
+from app.routes.settings_routes import settings_bp
 from app.utils.filters import register_filters
 import logging
 from app.utils.mail import init_mail
+from app.models.user_model import User
 
 def create_app():
     """
@@ -44,6 +47,15 @@ def create_app():
     
     # JWT 초기화
     jwt = JWTManager(app)
+
+    # Flask-Login 초기화
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login_page'
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.get(user_id)
     
     # 데이터베이스 초기화
     initialize_database()
@@ -86,6 +98,7 @@ def create_app():
     app.register_blueprint(ticketing_bp, url_prefix='/ticketing')
     app.register_blueprint(company_bp, url_prefix='/companies')
     app.register_blueprint(public_bp)
+    app.register_blueprint(settings_bp, url_prefix='/settings')
     
     @app.route('/')
     def index():
