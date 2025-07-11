@@ -161,3 +161,4 @@ cython_debug/
 data/travel_crm.db
 app/data/private_uploads
 app/static/uploads
+'travel_crm.db'  
