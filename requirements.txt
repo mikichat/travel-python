@@ -58,9 +58,9 @@ spinners==0.0.24
 sympy==1.14.0
 termcolor==3.1.0
 tokenizers==0.21.1
-torch==2.7.0+cu128
-torchaudio==2.7.0+cu128
-torchvision==0.22.0+cu128
+# torch==2.7.0+cu128
+# torchaudio==2.7.0+cu128
+# torchvision==0.22.0+cu128
 tqdm==4.67.1
 typing_extensions==4.13.2
 tzdata==2025.2

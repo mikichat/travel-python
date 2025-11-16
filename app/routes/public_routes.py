@@ -6,57 +6,162 @@ from app.utils.mail import send_email
 
 public_bp = Blueprint('public', __name__)
 
-@public_bp.route('/<string:reservation_code>')
-def view_reservation_by_code(reservation_code):
-    # 5자리, 앞 2자리 숫자, 뒤 3자리 영문 대소문자인 예약코드만 허용
-    if len(reservation_code) == 5 and \
-       reservation_code[:2].isdigit() and \
-       reservation_code[2:].isalpha():
+@public_bp.route('/my-trip/<string:reservation_code>')
+def my_trip_page(reservation_code):
+    conn = None
+    try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # 예약 정보, 고객 정보, 여권 정보를 함께 조회
         cursor.execute("""
-            SELECT r.*, c.name as customer_name, s.title as schedule_title,
-                   s.start_date as travel_start_date, s.end_date as travel_end_date
+            SELECT
+                r.*,
+                c.id as customer_id, c.name as customer_name, c.phone, c.email,
+                s.title as schedule_title, s.start_date as travel_start_date, s.end_date as travel_end_date,
+                p.id as passport_info_id, p.passport_number, p.last_name_eng, p.first_name_eng, p.expiry_date, p.passport_photo_path
             FROM reservations r
-            LEFT JOIN customers c ON r.customer_id = c.id
+            JOIN customers c ON r.customer_id = c.id
             LEFT JOIN schedules s ON r.schedule_id = s.id
+            LEFT JOIN passport_info p ON c.passport_info_id = p.id
+            WHERE r.reservation_code = ? AND r.deleted_at IS NULL
+        """, (reservation_code,))
+
+        data = cursor.fetchone()
+
+        if not data:
+            return render_template('errors/404.html', message="예약 정보를 찾을 수 없습니다."), 404
+
+        # 데이터를 딕셔너리로 분리
+        reservation_data = {k: data[k] for k in data.keys() if k in ['id', 'customer_id', 'schedule_id', 'status', 'booking_date', 'number_of_people', 'total_price', 'notes', 'reservation_code', 'customer_name', 'schedule_title', 'travel_start_date', 'travel_end_date']}
+        customer_data = {k: data[k] for k in data.keys() if k in ['customer_id', 'name', 'phone', 'email']}
+        customer_data['name'] = data['customer_name'] # customer_name을 customer 딕셔너리에 추가
+        passport_data = {k: data[k] for k in data.keys() if k in ['passport_info_id', 'passport_number', 'last_name_eng', 'first_name_eng', 'expiry_date', 'passport_photo_path']} if data['passport_info_id'] else None
+
+        return render_template('my_trip.html',
+                               reservation=reservation_data,
+                               customer=customer_data,
+                               passport_info=passport_data)
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching my trip page data: {e}")
+        return render_template('errors/500.html'), 500
+    finally:
+        if conn:
+            conn.close()
+
+import os
+import uuid
+from werkzeug.utils import secure_filename
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@public_bp.route('/api/public/update-my-info/<string:reservation_code>', methods=['POST'])
+def update_my_info(reservation_code):
+    email_dispatch_code = request.form.get('email_dispatch_code')
+
+    if not email_dispatch_code:
+        return jsonify({'success': False, 'error': '이메일 인증 코드가 필요합니다.'}), 400
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 1. 인증 코드 확인
+        cursor.execute("""
+            SELECT r.id, r.customer_id, r.email_dispatch_code, r.email_dispatch_code_expires_at, c.passport_info_id
+            FROM reservations r
+            JOIN customers c ON r.customer_id = c.id
             WHERE r.reservation_code = ? AND r.deleted_at IS NULL
         """, (reservation_code,))
         reservation = cursor.fetchone()
-        conn.close()
-        if reservation:
-            reservation_dict = dict(reservation)
-            # booking_date를 YYYY-MM-DD 형식으로 변환
-            if reservation_dict.get('booking_date'):
-                try:
-                    # ISO 8601 형식 (마이크로초 포함, 'T' 구분자)
-                    booking_datetime = datetime.datetime.strptime(reservation_dict['booking_date'], '%Y-%m-%dT%H:%M:%S.%f')
-                except ValueError:
-                    try:
-                        # ISO 8601 형식 (마이크로초 없음, 'T' 구분자)
-                        booking_datetime = datetime.datetime.strptime(reservation_dict['booking_date'], '%Y-%m-%dT%H:%M:%S')
-                    except ValueError:
-                        try:
-                            # 기존 형식 (마이크로초 포함, 공백 구분자)
-                            booking_datetime = datetime.datetime.strptime(reservation_dict['booking_date'], '%Y-%m-%d %H:%M:%S.%f')
-                        except ValueError:
-                            try:
-                                # 기존 형식 (마이크로초 없음, 공백 구분자)
-                                booking_datetime = datetime.datetime.strptime(reservation_dict['booking_date'], '%Y-%m-%d %H:%M:%S')
-                            except ValueError:
-                                booking_datetime = None
 
-                if booking_datetime:
-                    reservation_dict['booking_date'] = booking_datetime.strftime('%Y-%m-%d')
-                else:
-                    reservation_dict['booking_date'] = reservation_dict['booking_date'] # 실패 시 원본 유지
+        if not reservation:
+            return jsonify({'success': False, 'error': '유효하지 않은 예약 코드입니다.'}), 404
 
-            reservation_dict['customer_name'] = reservation_dict.get('customer_name', '알 수 없음')
-            reservation_dict['schedule_title'] = reservation_dict.get('schedule_title', '알 수 없음')
-            reservation_dict['travel_start_date'] = reservation_dict.get('travel_start_date', '')
-            reservation_dict['travel_end_date'] = reservation_dict.get('travel_end_date', '')
-            return render_template('view_reservation.html', reservation=reservation_dict)
-    return render_template('errors/404.html'), 404
+        if not reservation['email_dispatch_code'] or reservation['email_dispatch_code'] != email_dispatch_code:
+            return jsonify({'success': False, 'error': '인증 코드가 일치하지 않습니다.'}), 401
+
+        if reservation['email_dispatch_code_expires_at']:
+            expires_at = datetime.datetime.fromisoformat(reservation['email_dispatch_code_expires_at'])
+            if datetime.datetime.now() > expires_at:
+                return jsonify({'success': False, 'error': '인증 코드가 만료되었습니다.'}), 401
+
+        # 2. 폼 데이터 가져오기
+        name = request.form.get('name')
+        phone = request.form.get('phone')
+        email = request.form.get('email')
+        passport_number = request.form.get('passport_number')
+        last_name_eng = request.form.get('last_name_eng')
+        first_name_eng = request.form.get('first_name_eng')
+        expiry_date = request.form.get('expiry_date')
+        delete_passport_photo = request.form.get('delete_passport_photo') == 'true'
+        passport_photo_file = request.files.get('passport_photo')
+
+        current_time = datetime.datetime.now().isoformat()
+        customer_id = reservation['customer_id']
+
+        # 3. 고객 정보 업데이트
+        cursor.execute("""
+            UPDATE customers SET name = ?, phone = ?, email = ?, updated_at = ? WHERE id = ?
+        """, (name, phone, email, current_time, customer_id))
+
+        # 4. 여권 사진 처리
+        passport_info_id = reservation['passport_info_id']
+        updated_passport_photo_filename = None
+
+        if passport_info_id:
+            cursor.execute("SELECT passport_photo_path FROM passport_info WHERE id = ?", (passport_info_id,))
+            existing_photo = cursor.fetchone()
+            if existing_photo:
+                updated_passport_photo_filename = existing_photo['passport_photo_path']
+
+        if delete_passport_photo and updated_passport_photo_filename:
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], updated_passport_photo_filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            updated_passport_photo_filename = None
+
+        if passport_photo_file and allowed_file(passport_photo_file.filename):
+            filename = secure_filename(passport_photo_file.filename)
+            unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
+            os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+            passport_photo_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+            passport_photo_file.save(passport_photo_path)
+            updated_passport_photo_filename = unique_filename
+
+        # 5. 여권 정보 업데이트 또는 생성
+        if passport_info_id:
+            cursor.execute("""
+                UPDATE passport_info
+                SET passport_number = ?, last_name_eng = ?, first_name_eng = ?, expiry_date = ?, passport_photo_path = ?, updated_at = ?
+                WHERE id = ?
+            """, (passport_number, last_name_eng, first_name_eng, expiry_date, updated_passport_photo_filename, current_time, passport_info_id))
+        else:
+            cursor.execute("""
+                INSERT INTO passport_info (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, passport_photo_path, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (customer_id, passport_number, last_name_eng, first_name_eng, expiry_date, updated_passport_photo_filename, current_time, current_time))
+            new_passport_info_id = cursor.lastrowid
+            cursor.execute("UPDATE customers SET passport_info_id = ? WHERE id = ?", (new_passport_info_id, customer_id))
+
+        conn.commit()
+
+        return jsonify({'success': True, 'message': '정보가 성공적으로 업데이트되었습니다.', 'new_photo_path': updated_passport_photo_filename})
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        current_app.logger.error(f"Error updating my info: {e}")
+        return jsonify({'success': False, 'error': '서버 오류가 발생했습니다.'}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @public_bp.route('/api/public/send_login_code', methods=['POST'])
 def send_reservation_login_code():
@@ -170,7 +275,7 @@ def login_with_reservation_code():
         # For now, let's redirect to a success page or a page where they can update info
         # In a real application, you might set a session or a temporary token here
         current_app.logger.info(f"Public login successful for reservation: {reservation_code}, email: {customer_email_from_db}")
-        return redirect(url_for('public.view_reservation_by_code', reservation_code=reservation_code)) # Redirect to view reservation page or a dedicated update page
+        return redirect(url_for('public.my_trip_page', reservation_code=reservation_code)) # Redirect to the new trip page
 
     except Exception as e:
         current_app.logger.error(f"Error during public login: {e}")
