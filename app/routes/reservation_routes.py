@@ -849,7 +849,7 @@ def edit_reservation_page(reservation_id):
     # QR 코드 생성 (GET 요청 시에만)
     qr_code_base64 = None
     if reservation and reservation['reservation_code']:
-        qr_url = f"{Config.BASE_DOMAIN_URL}/{reservation['reservation_code']}"
+        qr_url = f"{Config.BASE_DOMAIN_URL}/my-trip/{reservation['reservation_code']}"
         qr = qrcode.make(qr_url)
         buf = io.BytesIO()
         qr.save(buf, format='PNG')

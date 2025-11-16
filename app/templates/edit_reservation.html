@@ -39,7 +39,7 @@
         <div class="flex items-center space-x-6 mb-6">
             <div class="relative group">
                 <span class="font-semibold reservation-code-hover" style="cursor:pointer;">예약코드:</span>
-                <a class="text-blue-700 text-lg" href="/{{ reservation.reservation_code }}" target="_blank">{{ reservation.reservation_code }}</a>
+                <a class="text-blue-700 text-lg" href="/my-trip/{{ reservation.reservation_code }}" target="_blank">{{ reservation.reservation_code }}</a>
                 {% if qr_code_base64 %}
                 <div class="absolute left-0 mt-2 z-20 hidden group-hover:block reservation-qr-popup" style="background:#fff; border:1px solid #ddd; padding:8px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
                     <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="예약 QR 코드" style="width:120px; height:120px; display:block;"/>
