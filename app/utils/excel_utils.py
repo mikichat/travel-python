@@ -6,6 +6,7 @@ import io
 from datetime import datetime
 from database import get_db_connection
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -77,16 +78,19 @@ def import_customers_from_excel(file_content):
                     continue
                 
                 # 고객 추가
+                new_customer_id = str(time.time_ns())
+                current_time = datetime.now().isoformat()
                 cursor.execute("""
-                    INSERT INTO customers (name, email, phone, address, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO customers (id, name, email, phone, address, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
+                    new_customer_id,
                     row['이름'],
                     row['이메일'],
                     row.get('전화번호', ''),
                     row.get('주소', ''),
-                    datetime.now().isoformat(),
-                    datetime.now().isoformat()
+                    current_time,
+                    current_time
                 ))
                 
                 success_count += 1

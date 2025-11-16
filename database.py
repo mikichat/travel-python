@@ -28,7 +28,7 @@ def initialize_database():
     # customers 테이블 생성
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS customers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             phone TEXT NOT NULL,
             email TEXT,
@@ -104,7 +104,7 @@ def initialize_database():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS reservations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            customer_id INTEGER NOT NULL,
+            customer_id TEXT NOT NULL,
             schedule_id INTEGER NOT NULL,
             status TEXT NOT NULL DEFAULT 'REQUESTED',
             booking_date TEXT NOT NULL,
@@ -141,7 +141,7 @@ def initialize_database():
         CREATE TABLE IF NOT EXISTS audit_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             table_name TEXT NOT NULL,
-            record_id INTEGER NOT NULL,
+            record_id TEXT NOT NULL,
             action TEXT NOT NULL,
             field_name TEXT NOT NULL,
             old_value TEXT,
@@ -180,7 +180,7 @@ def initialize_database():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS passport_info (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            customer_id INTEGER NOT NULL,
+            customer_id TEXT NOT NULL,
             passport_number TEXT,
             last_name_eng TEXT,
             first_name_eng TEXT,

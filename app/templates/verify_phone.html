@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전화번호 확인</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>전화번호 확인</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>예약 정보에 접근하려면 계약자 전화번호 끝 4자리를 입력해주세요.</p>
+                        <form method="POST" action="{{ url_for('public.my_trip_page', reservation_code=reservation_code) }}">
+                            <div class="form-group">
+                                <label for="phone_digits">전화번호 끝 4자리</label>
+                                <input type="text" class="form-control" id="phone_digits" name="phone_digits" maxlength="4" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">확인</button>
+                        </form>
+                        {% if error %}
+                            <div class="alert alert-danger mt-3">{{ error }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
