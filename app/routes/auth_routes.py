@@ -34,6 +34,11 @@ def login_page():
         if user_from_db and bcrypt.checkpw(password.encode('utf-8'), user_from_db['password'].encode('utf-8')):
             user = User.get(user_from_db['id'])
             login_user(user)
+            # Flask 세션 설정 (jwt_required 데코레이터를 위한)
+            session['logged_in'] = True
+            session['user_id'] = user_from_db['id']
+            session['username'] = user_from_db['username']
+            session.permanent = True  # 세션 영구 저장
             return redirect(url_for('dashboard.dashboard'))
         else:
             return render_template('login.html', error='사용자명 또는 비밀번호가 올바르지 않습니다.', username=username)
@@ -65,6 +70,12 @@ def login():
             current_app.config['SECRET_KEY'],
             algorithm='HS256'
         )
+
+        # Flask 세션 설정 (웹 페이지 요청을 위한)
+        session['logged_in'] = True
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session.permanent = True  # 세션 영구 저장
 
         user_data = dict(user)
         user_data.pop('password')
@@ -244,6 +255,10 @@ def register():
 def logout():
     """로그아웃"""
     logout_user()
+    # Flask 세션 정리
+    session.pop('logged_in', None)
+    session.pop('user_id', None)
+    session.pop('username', None)
     return redirect(url_for('auth.login_page'))
 
 @auth_bp.route('/dashboard')

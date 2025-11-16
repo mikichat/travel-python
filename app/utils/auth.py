@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import request, jsonify, session, redirect, url_for, current_app, g
+from flask import request, jsonify, session, redirect, url_for, current_app, g, flash
 import jwt
 from app.utils.errors import APIError
 from database import get_db_connection
@@ -12,23 +12,30 @@ def jwt_required(app):
             g.user = None # g.user 초기화
 
             # 웹 페이지 요청인 경우 Flask 세션을 먼저 확인
-            if not request.path.startswith('/api/') and session.get('logged_in'):
-                user_id = session.get('user_id')
-                if user_id:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute('SELECT id, username, email FROM users WHERE id = ?', (user_id,))
-                    user = cursor.fetchone()
-                    conn.close()
-                    if user:
-                        g.user = dict(user)
+            if not request.path.startswith('/api/'):
+                if session.get('logged_in'):
+                    user_id = session.get('user_id')
+                    if user_id:
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute('SELECT id, username, email FROM users WHERE id = ?', (user_id,))
+                        user = cursor.fetchone()
+                        conn.close()
+                        if user:
+                            g.user = dict(user)
+                            return f(*args, **kwargs)
+                        else:
+                            session.pop('logged_in', None)
+                            session.pop('user_id', None)
+                            session.pop('username', None)
+                            flash('세션 사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.', 'error')
+                            return redirect(url_for('auth.login_page'))
                     else:
+                        # logged_in이 True인데 user_id가 없는 경우
                         session.pop('logged_in', None)
-                        session.pop('user_id', None)
                         session.pop('username', None)
-                        flash('세션 사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.', 'error')
-                        return redirect(url_for('auth.login_page'))
-                return f(*args, **kwargs)
+                        return redirect(url_for('auth.login_page', error='세션 정보가 올바르지 않습니다. 다시 로그인해주세요.'))
+                # 세션이 없는 경우 JWT 확인으로 넘어감
 
             # API 호출이거나 Flask 세션에 로그인 정보가 없는 경우 JWT 확인
             auth_header = request.headers.get('Authorization')

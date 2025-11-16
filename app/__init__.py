@@ -1,5 +1,6 @@
 from flask import Flask, redirect, url_for
 import os
+from datetime import timedelta
 from app.utils.errors import register_error_handlers
 from flask_jwt_extended import JWTManager
 from flask_login import LoginManager
@@ -39,11 +40,20 @@ def create_app():
     app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
     
     # 기본 설정
-    app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET', 'your-secret-key')
+    # Flask 세션을 위한 SECRET_KEY (FLASK_SECRET_KEY 우선 사용)
+    flask_secret = os.environ.get('FLASK_SECRET_KEY')
+    if flask_secret:
+        app.config['SECRET_KEY'] = flask_secret
+    else:
+        app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET', 'your-secret-key')
+    
     app.config['FLASK_SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
     app.config['JWT_SECRET_KEY'] = 'jwt-secret-string'
     app.config['JWT_TOKEN_LOCATION'] = ['cookies']
     app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+    
+    # 세션 영구 저장 설정 (31일)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=31)
     
     # JWT 초기화
     jwt = JWTManager(app)
