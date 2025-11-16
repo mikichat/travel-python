@@ -172,7 +172,7 @@
             <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">예약코드</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">고객명</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">일정명</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
@@ -189,7 +189,7 @@
                         {% if reservations %}
                         {% for reservation in reservations %}
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ reservation.reservation_code }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ reservation.id }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ reservation.customerName }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ reservation.scheduleTitle }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">

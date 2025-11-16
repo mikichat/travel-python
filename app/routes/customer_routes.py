@@ -1,4 +1,3 @@
-import time
 from flask import Blueprint, render_template, request, jsonify, current_app, make_response, redirect, url_for, flash, g
 from flask_login import login_required, current_user
 from datetime import datetime
@@ -261,29 +260,26 @@ def create_customer():
         conn = get_db_connection()
         cursor = conn.cursor()
         current_time = datetime.now().isoformat()
-        new_customer_id = str(time.time_ns())
 
         # 고객 생성
         cursor.execute("""
-            INSERT INTO customers (id, name, email, phone, address, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (new_customer_id, name, email, phone, address, current_time, current_time))
+            INSERT INTO customers (name, email, phone, address, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (name, email, phone, address, current_time, current_time))
+        
+        new_customer_id = cursor.lastrowid
         
         conn.commit()
-        
-        cursor.execute('SELECT * FROM customers WHERE id = ?', (new_customer_id,))
-        new_customer = cursor.fetchone()
-        
         conn.close()
         
-        return jsonify(dict(new_customer)), 201
+        return redirect(url_for('customer.customers_page'))
     except APIError:
         raise
     except Exception as e:
         print(f'고객 등록 오류: {e}')
         raise APIError('고객 등록 중 오류가 발생했습니다.', 500)
 
-@customer_bp.route('/api/customers/<string:customer_id>', methods=['GET'])
+@customer_bp.route('/api/customers/<int:customer_id>', methods=['GET'])
 @jwt_required(current_app)
 def get_customer_by_id(customer_id):
     """단일 고객 정보를 반환하는 API 엔드포인트"""
@@ -297,7 +293,7 @@ def get_customer_by_id(customer_id):
         return jsonify(dict(customer))
     raise APIError('고객을 찾을 수 없습니다.', 404)
 
-@customer_bp.route('/api/customers/<string:customer_id>', methods=['PUT'])
+@customer_bp.route('/api/customers/<int:customer_id>', methods=['PUT'])
 @jwt_required(current_app)
 def update_customer(customer_id):
     """고객 수정 API"""
@@ -373,7 +369,7 @@ def update_customer(customer_id):
         print(f'고객 수정 오류: {e}')
         raise APIError('고객 수정 중 오류가 발생했습니다.', 500)
 
-@customer_bp.route('/api/customers/<string:customer_id>', methods=['DELETE'])
+@customer_bp.route('/api/customers/<int:customer_id>', methods=['DELETE'])
 @jwt_required(current_app)
 def delete_customer(customer_id):
     """고객을 논리적으로 삭제하는 API 엔드포인트"""
@@ -403,7 +399,7 @@ def delete_customer(customer_id):
         print(f'고객 삭제 오류: {e}')
         return jsonify({'error': '고객 삭제 중 오류가 발생했습니다.'}), 500
 
-@customer_bp.route('/delete/<string:customer_id>', methods=['POST'])
+@customer_bp.route('/delete/<int:customer_id>', methods=['POST'])
 @jwt_required(current_app)
 def delete_customer_page(customer_id):
     """고객을 논리적으로 삭제하고 고객 목록 페이지로 리다이렉트"""
@@ -433,7 +429,7 @@ def delete_customer_page(customer_id):
         flash('고객 삭제 중 오류가 발생했습니다.', 'error')
         return redirect(url_for('customer.customers_page'))
 
-@customer_bp.route('/restore/<string:customer_id>', methods=['POST'])
+@customer_bp.route('/restore/<int:customer_id>', methods=['POST'])
 @jwt_required(current_app)
 def restore_customer_page(customer_id):
     """고객을 복원하고 고객 목록 페이지로 리다이렉트"""
@@ -557,13 +553,13 @@ def create_customer_page():
             conn = get_db_connection()
             cursor = conn.cursor()
             current_time = datetime.now().isoformat()
-            customer_id = str(time.time_ns())
 
             # 고객 생성
             cursor.execute("""
-                INSERT INTO customers (id, name, email, phone, address, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (customer_id, name, email, phone, address, notes, current_time, current_time))
+                INSERT INTO customers (name, email, phone, address, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (name, email, phone, address, notes, current_time, current_time))
+            customer_id = cursor.lastrowid
 
             passport_info_id = None
             any_passport_field = any([passport_number, last_name_eng, first_name_eng, expiry_date, passport_photo_filename])
@@ -603,7 +599,7 @@ def create_customer_page():
     
     return render_template('create_customer.html')
 
-@customer_bp.route('/<string:customer_id>', methods=['GET', 'POST'])
+@customer_bp.route('/<int:customer_id>', methods=['GET', 'POST'])
 @jwt_required(current_app)
 def edit_customer_page(customer_id):
     """고객 수정 페이지"""

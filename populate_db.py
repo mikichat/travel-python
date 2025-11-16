@@ -2,7 +2,6 @@ import sqlite3
 import bcrypt
 from datetime import datetime
 from database import get_db_connection, initialize_database # database.py에서 함수 가져오기
-import time
 
 def log_change(cursor, table_name, record_id, action, field_name, old_value, new_value, changed_by, details=None):
     """변경 로그를 데이터베이스에 기록"""
@@ -44,14 +43,14 @@ def populate_sample_data():
     print("사용자 샘플 데이터 삽입 완료.")
 
     # 2. 고객 샘플 데이터 삽입
-    customer1_id = str(time.time_ns())
-    cursor.execute("INSERT INTO customers (id, name, phone, email, address, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                   (customer1_id, "김철수", "010-1234-5678", "chulsoo@example.com", "서울시 강남구", "VIP 고객", now, now))
+    cursor.execute("INSERT INTO customers (name, phone, email, address, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   ("김철수", "010-1234-5678", "chulsoo@example.com", "서울시 강남구", "VIP 고객", now, now))
+    customer1_id = cursor.lastrowid
     log_change(cursor, 'customers', customer1_id, 'CREATE', 'all', None, '고객 생성: 김철수', 'system', '샘플 데이터 생성')
     
-    customer2_id = str(time.time_ns())
-    cursor.execute("INSERT INTO customers (id, name, phone, email, address, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                   (customer2_id, "이영희", "010-9876-5432", "younghee@example.com", "부산시 해운대구", "단체 여행 선호", now, now))
+    cursor.execute("INSERT INTO customers (name, phone, email, address, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   ("이영희", "010-9876-5432", "younghee@example.com", "부산시 해운대구", "단체 여행 선호", now, now))
+    customer2_id = cursor.lastrowid
     log_change(cursor, 'customers', customer2_id, 'CREATE', 'all', None, '고객 생성: 이영희', 'system', '샘플 데이터 생성')
     
     conn.commit()

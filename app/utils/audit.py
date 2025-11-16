@@ -10,7 +10,7 @@ def log_change(table_name, record_id, action, field_name, old_value, new_value, 
     
     Args:
         table_name (str): 테이블 이름 (customers, schedules, reservations)
-        record_id (int or str): 레코드 ID
+        record_id (int): 레코드 ID
         action (str): 액션 (CREATE, UPDATE, DELETE)
         field_name (str): 변경된 필드 이름
         old_value (str): 변경 전 값
