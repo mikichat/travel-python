@@ -37,6 +37,12 @@ class Config:
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
 
+    # SMS 인증 설정
+    SMS_VERIFICATION_ENABLED = os.getenv('SMS_VERIFICATION_ENABLED', 'True').lower() in ('true', '1', 't')
+    SMS_API_KEY = os.getenv('SMS_API_KEY')
+    SMS_API_SECRET = os.getenv('SMS_API_SECRET')
+    SMS_SENDER_NUMBER = os.getenv('SMS_SENDER_NUMBER')
+
     # 페이지네이션 설정
     PER_PAGE = int(os.getenv('PER_PAGE', 10))
 

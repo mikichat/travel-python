@@ -6,42 +6,93 @@ from app.utils.mail import send_email
 
 public_bp = Blueprint('public', __name__)
 
-@public_bp.route('/my-trip/<string:reservation_code>')
-def my_trip_page(reservation_code):
-    conn = None
+@public_bp.route('/my-trip/<string:reservation_code>', methods=['GET', 'POST'], defaults={'phone_digits': None})
+@public_bp.route('/my-trip/<string:reservation_code>/<string:phone_digits>', methods=['GET'])
+def my_trip_page(reservation_code, phone_digits):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # 예약 정보 확인
+        cursor.execute("SELECT r.*, c.phone FROM reservations r JOIN customers c ON r.customer_id = c.id WHERE r.reservation_code = ? AND r.deleted_at IS NULL", (reservation_code,))
+        reservation_data = cursor.fetchone()
 
-        # 예약 정보, 고객 정보, 여권 정보를 함께 조회
-        cursor.execute("""
-            SELECT
-                r.*,
-                c.id as customer_id, c.name as customer_name, c.phone, c.email,
-                s.title as schedule_title, s.start_date as travel_start_date, s.end_date as travel_end_date,
-                p.id as passport_info_id, p.passport_number, p.last_name_eng, p.first_name_eng, p.expiry_date, p.passport_photo_path
-            FROM reservations r
-            JOIN customers c ON r.customer_id = c.id
-            LEFT JOIN schedules s ON r.schedule_id = s.id
-            LEFT JOIN passport_info p ON c.passport_info_id = p.id
-            WHERE r.reservation_code = ? AND r.deleted_at IS NULL
-        """, (reservation_code,))
-
-        data = cursor.fetchone()
-
-        if not data:
+        if not reservation_data:
             return render_template('errors/404.html', message="예약 정보를 찾을 수 없습니다."), 404
 
-        # 데이터를 딕셔너리로 분리
-        reservation_data = {k: data[k] for k in data.keys() if k in ['id', 'customer_id', 'schedule_id', 'status', 'booking_date', 'number_of_people', 'total_price', 'notes', 'reservation_code', 'customer_name', 'schedule_title', 'travel_start_date', 'travel_end_date']}
-        customer_data = {k: data[k] for k in data.keys() if k in ['customer_id', 'name', 'phone', 'email']}
-        customer_data['name'] = data['customer_name'] # customer_name을 customer 딕셔너리에 추가
-        passport_data = {k: data[k] for k in data.keys() if k in ['passport_info_id', 'passport_number', 'last_name_eng', 'first_name_eng', 'expiry_date', 'passport_photo_path']} if data['passport_info_id'] else None
+        def render_trip_details():
+            # 전체 정보 다시 조회 (JOIN 포함)
+            cursor.execute("""
+                SELECT
+                    r.*,
+                    c.id as customer_id, c.name as customer_name, c.phone, c.email,
+                    s.title as schedule_title, s.start_date as travel_start_date, s.end_date as travel_end_date,
+                    p.id as passport_info_id, p.passport_number, p.last_name_eng, p.first_name_eng, p.expiry_date, p.passport_photo_path
+                FROM reservations r
+                JOIN customers c ON r.customer_id = c.id
+                LEFT JOIN schedules s ON r.schedule_id = s.id
+                LEFT JOIN passport_info p ON c.passport_info_id = p.id
+                WHERE r.reservation_code = ? AND r.deleted_at IS NULL
+            """, (reservation_code,))
+            data = cursor.fetchone()
 
-        return render_template('my_trip.html',
-                               reservation=reservation_data,
-                               customer=customer_data,
-                               passport_info=passport_data)
+            reservation_data_dict = {k: data[k] for k in data.keys() if k in ['id', 'customer_id', 'schedule_id', 'status', 'booking_date', 'number_of_people', 'total_price', 'notes', 'reservation_code', 'customer_name', 'schedule_title', 'travel_start_date', 'travel_end_date']}
+            customer_data_dict = {k: data[k] for k in data.keys() if k in ['customer_id', 'name', 'phone', 'email']}
+            customer_data_dict['name'] = data['customer_name']
+            passport_data = {k: data[k] for k in data.keys() if k in ['passport_info_id', 'passport_number', 'last_name_eng', 'first_name_eng', 'expiry_date', 'passport_photo_path']} if data['passport_info_id'] else None
+
+            return render_template('my_trip.html',
+                                   reservation=reservation_data_dict,
+                                   customer=customer_data_dict,
+                                   passport_info=passport_data)
+
+        if current_app.config.get('SMS_VERIFICATION_ENABLED'):
+            if request.method == 'POST':
+                action = request.form.get('action')
+                if action == 'send_sms':
+                    sms_code = str(random.randint(100000, 999999))
+                    expires_at = datetime.datetime.now() + datetime.timedelta(minutes=10)
+                    
+                    cursor.execute("UPDATE reservations SET sms_dispatch_code = ?, sms_dispatch_code_expires_at = ? WHERE id = ?",
+                                   (sms_code, expires_at.isoformat(), reservation_data['id']))
+                    conn.commit()
+                    
+                    current_app.logger.info(f"SMS Code for {reservation_code}: {sms_code}")
+                    return render_template('verify_sms.html', reservation_code=reservation_code, message="인증번호가 발송되었습니다.")
+                
+                elif action == 'verify_sms':
+                    submitted_code = request.form.get('sms_code')
+                    stored_code = reservation_data['sms_dispatch_code']
+                    expires_at_str = reservation_data['sms_dispatch_code_expires_at']
+
+                    if not stored_code or stored_code != submitted_code:
+                        return render_template('verify_sms.html', reservation_code=reservation_code, error="인증번호가 일치하지 않습니다.")
+
+                    if expires_at_str:
+                        expires_at = datetime.datetime.fromisoformat(expires_at_str)
+                        if datetime.datetime.now() > expires_at:
+                            return render_template('verify_sms.html', reservation_code=reservation_code, error="인증번호가 만료되었습니다.")
+                    
+                    return render_trip_details()
+            
+            return render_template('verify_sms.html', reservation_code=reservation_code)
+
+        else: # Phone digit verification
+            if request.method == 'POST':
+                phone_digits_form = request.form.get('phone_digits')
+                if phone_digits_form:
+                    return redirect(url_for('public.my_trip_page', reservation_code=reservation_code, phone_digits=phone_digits_form))
+                else:
+                    return render_template('verify_phone.html', reservation_code=reservation_code, error="전화번호 끝 4자리를 입력해주세요.")
+
+            if phone_digits is None:
+                return render_template('verify_phone.html', reservation_code=reservation_code)
+
+            customer_phone = reservation_data['phone']
+            if not customer_phone or len(customer_phone) < 4 or customer_phone[-4:] != phone_digits:
+                return render_template('verify_phone.html', reservation_code=reservation_code, error="전화번호가 일치하지 않습니다."), 403
+            
+            return render_trip_details()
 
     except Exception as e:
         current_app.logger.error(f"Error fetching my trip page data: {e}")
